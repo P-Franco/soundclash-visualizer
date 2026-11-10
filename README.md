@@ -89,6 +89,9 @@ cannot feed back. Only the test track plays out loud.
   loop, or jump to a random clip. Speed, darken and red wash controls. The clip zooms and
   brightens slightly on each kick ("video punch", adjustable, off by default when your
   system asks for reduced motion).
+- **Crossfade**: clips dissolve into each other instead of cutting, over 0 to 5 seconds
+  (1 second by default, 0 is a hard cut). A single looping clip can crossfade into its own
+  start too. Turn that off if your clip is already a seamless loop.
 - **Graph**: LED bars with falling peak caps and zones that flash white on hits, or a
   spectrum curve with peak note and Hz labels. A status block shows input, preset, clip,
   time, level and KICK / SNARE / HAT pads. Labels in English or Japanese.
@@ -118,6 +121,13 @@ One browser quirk worth knowing: Chrome and Edge refuse to load a worklet from a
 when the page was opened from `file://`. The worklet source is therefore loaded from a
 `data:` URL on `file://`, and from a Blob URL when the page is served over http.
 
+### How clips play
+
+There are two stacked video elements. One is on screen. The other holds the clip that is
+likely to play next, already opened and paused on its first frame, so a switch does not
+wait for a file to load. A crossfade plays both for a moment and blends them. The fade
+starts early enough to finish as the outgoing clip runs out.
+
 ## Project layout
 
 ```
@@ -131,7 +141,7 @@ src/
     detect-core.js      the detection math (FFT, flux, thresholds), no browser APIs
     detect.worklet.js   AudioWorklet shell around detect-core.js
     zone-editor.js      HIT ZONES controls
-    clips.js            video playlist, drag and drop
+    clips.js            video playlist on two stacked videos, crossfade, drag and drop
     presets.js          MilkDrop layer and preset list
     hud.js              spectrum analysis and graph drawing
     ui.js               control bindings, drawer, hotkeys
@@ -171,6 +181,8 @@ clicks Start, and checks:
 - hit counts in each zone against what the loop contains,
 - the same counts again while the main thread is blocked 80% of the time,
 - the hit zone editor (edit, add, rename, remove, reset),
+- clip playback, using short clips the page records for itself: crossfades, hard cuts,
+  each end-of-clip mode, a file that cannot be decoded, removing clips,
 - every hotkey,
 - that nothing was logged as a console error and nothing was requested over the network.
 

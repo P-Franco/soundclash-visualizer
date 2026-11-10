@@ -3,5 +3,6 @@ export const $ = id => document.getElementById(id);
 
 export const stageMd = $("md");   // MilkDrop (WebGL) canvas
 export const hud = $("hud");      // 2D graph and status overlay
-export const bg = $("bg");        // background video
+export const vidBox = $("vids");  // holds the two background videos
+export const vids = [$("bg"), $("bg2")];   // vids[1] is stacked above vids[0]
 export const panel = $("panel");  // control drawer

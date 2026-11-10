@@ -105,7 +105,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones")}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function"}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -130,6 +130,7 @@ async function main(){
   }
 
   if(info.features.zones) await zones(page);
+  if(info.features.clipState) await clipTests(page);
   await hotkeys(page);
 
   section("storage");
@@ -194,6 +195,144 @@ async function zones(page){
   check("Reset zones restores the defaults", d.length === 3 && d[0].lo === 40 && d[0].hi === 120 && d[1].lo === 1800 && d[2].hi === 14000, d.map(z => z.lo + "-" + z.hi).join(" "));
   await page.waitForTimeout(3000);
   compare(await countHits(page, 4000), "after reset: ");
+}
+
+/* ---------- video clips ---------- */
+/* No media is kept in the repo, so the page records its own short clips: a coloured canvas with a
+   running clock, captured with MediaRecorder. They are real WebM files as far as <video> can tell,
+   but they say nothing about how large real-world files decode. */
+const CLIP_SEC = 6;
+async function makeClips(page, n){
+  await page.evaluate(async ({n, secs}) => {
+    const colors = ["#7a1022", "#104a7a", "#1f6b2a", "#6b5a10"];
+    const rec = async k => {
+      const c = document.createElement("canvas"); c.width = 320; c.height = 180; const g = c.getContext("2d");
+      const t0 = performance.now(); let on = true;
+      const draw = () => { if(!on) return; const t = (performance.now() - t0) / 1000;
+        g.fillStyle = colors[k % 4]; g.fillRect(0, 0, 320, 180); g.fillStyle = "#fff"; g.font = "52px monospace";
+        g.fillText("clip " + (k + 1), 28, 78); g.fillText(t.toFixed(1) + " s", 28, 146); requestAnimationFrame(draw); };
+      draw();
+      const mr = new MediaRecorder(c.captureStream(30), {mimeType: "video/webm;codecs=vp8", videoBitsPerSecond: 300000});
+      const chunks = []; mr.ondataavailable = e => chunks.push(e.data);
+      const done = new Promise(r => { mr.onstop = r; });
+      mr.start(); await new Promise(r => setTimeout(r, secs * 1000)); mr.stop(); await done; on = false;
+      return new File(chunks, "test-clip-" + (k + 1) + ".webm", {type: "video/webm"});
+    };
+    window.__testClips = await Promise.all(Array.from({length: n}, (_, k) => rec(k)));
+  }, {n, secs: CLIP_SEC});
+}
+
+async function clipTests(page){
+  section("video clips (synthetic, recorded in the page)");
+  const st = () => page.evaluate(() => window.__scv.clipState());
+  const set = (id, value) => page.evaluate(({id, value}) => {
+    const el = document.getElementById(id);
+    if(el.type === "checkbox") el.checked = value; else el.value = value;
+    el.dispatchEvent(new Event(el.type === "range" ? "input" : "change"));
+  }, {id, value});
+  /* move the front video to `back` seconds before its end */
+  const nearEnd = back => page.evaluate(back => { const s = window.__scv.clipState(), v = document.querySelectorAll("#vids video")[s.front]; v.currentTime = Math.max(0, v.duration - back); }, back);
+  const wait = ms => page.waitForTimeout(ms);
+  const fr = s => s.els[s.front], bk = s => s.els[1 - s.front];
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+
+  await makeClips(page, 3);
+  await set("xfade", 1); await set("xfadeLoop", true); await set("loopMode", "cycle");
+  await page.evaluate(() => window.__scv.addClips(window.__testClips));
+  await wait(700);
+  let a = await st(); await wait(500); let b = await st();
+  check("three clips load and the first one plays", b.idx === 0 && !fr(b).paused && fr(b).t > fr(a).t && isFinite(fr(b).dur), "clip length " + fr(b).dur.toFixed(2) + " s");
+  check("the next clip waits, loaded and paused, in the hidden video", bk(b).clip === "test-clip-2.webm" && bk(b).ready && bk(b).paused, bk(b).clip + (bk(b).ready ? " ready" : " not ready"));
+
+  /* crossfade on V */
+  await page.keyboard.press("v"); await wait(450);
+  a = await st();
+  check("V starts a crossfade to the next clip", a.idx === 1 && a.fading && a.mix > 0.05 && a.mix < 0.95 && !a.els[0].paused && !a.els[1].paused, "mix " + a.mix.toFixed(2) + " at 0.45 s of 1 s");
+  await page.screenshot({path: path.join(outDir, "verify-crossfade.png")});
+  await wait(900);
+  a = await st();
+  check("the fade ends with one video playing and the other paused", !a.fading && (a.mix === 0 || a.mix === 1) && !fr(a).paused && bk(a).paused && fr(a).clip === "test-clip-2.webm");
+
+  /* hard cut when the crossfade is off */
+  await set("xfade", 0);
+  await page.keyboard.press("v"); await wait(200);
+  a = await st();
+  check("with crossfade off, V is a hard cut", a.idx === 2 && !a.fading && !fr(a).paused && fr(a).clip === "test-clip-3.webm");
+
+  /* end of clip, each mode */
+  await nearEnd(0.4); await wait(1000);
+  a = await st();
+  check("cycle: the end of a clip starts the next one", a.idx === 0 && !fr(a).paused && fr(a).t < 1.5, "now on clip " + (a.idx + 1));
+
+  await set("loopMode", "one"); await wait(100);
+  a = await st();
+  check("loop one without crossfade uses the browser's seamless loop", fr(a).loop === true);
+  await nearEnd(0.4); await wait(1000);
+  a = await st();
+  check("loop one: the clip starts over", a.idx === 0 && !fr(a).paused && fr(a).t < 1.5, "at " + fr(a).t.toFixed(2) + " s");
+
+  await set("xfade", 1); await wait(300);
+  a = await st();
+  check("loop one with crossfade keeps a second copy of the clip ready", bk(a).clip === fr(a).clip && bk(a).ready && fr(a).loop === false);
+  await nearEnd(1.5); await wait(1000);
+  a = await st();
+  check("loop one: the clip crossfades into its own start", a.idx === 0 && a.fading && a.els[0].clip === a.els[1].clip, "mix " + a.mix.toFixed(2));
+  await wait(1000);
+  a = await st();
+  check("and carries on from the start", a.idx === 0 && !a.fading && !fr(a).paused && fr(a).t < 2.5, "at " + fr(a).t.toFixed(2) + " s");
+
+  await set("xfadeLoop", false); await wait(200);
+  a = await st();
+  check("\"crossfade when one clip loops\" off goes back to the seamless loop", fr(a).loop === true);
+  await set("xfadeLoop", true);
+
+  await set("loopMode", "cycle"); await wait(300);
+  await nearEnd(1.6); await wait(1100);
+  a = await st();
+  check("cycle with crossfade: the fade starts before the clip runs out", a.idx === 1 && a.fading, "mix " + a.mix.toFixed(2));
+  await wait(900);
+
+  await set("loopMode", "shuffle"); await set("xfade", 0); await wait(200);
+  let moved = 0, prev = (await st()).idx;
+  for(let i = 0; i < 6; i++){ await page.keyboard.press("v"); await wait(120); const s = await st(); if(s.idx !== prev) moved++; prev = s.idx; }
+  check("shuffle always moves to a different clip", moved === 6, moved + " of 6");
+  await set("loopMode", "cycle");
+
+  /* speed applies to both videos */
+  await set("rate", 1.5); await wait(100);
+  a = await st();
+  check("clip speed reaches both videos", a.els[0].rate === 1.5 && a.els[1].rate === 1.5);
+  await set("rate", 1);
+
+  /* the kick punch scales the box that holds both videos */
+  await set("punch", 1);
+  const tf = await page.evaluate(() => new Promise(res => { let n = 0, hit = false; const t = () => { if(/scale/.test(document.getElementById("vids").style.transform)) hit = true; if(++n < 90 && !hit) requestAnimationFrame(t); else res(hit); }; t(); }));
+  check("video punch still zooms on the kick", tf === true);
+  await set("punch", 0.4);
+
+  /* a file the browser cannot decode */
+  await page.evaluate(() => window.__scv.addClips([new File([new Uint8Array(2000)], "broken.webm", {type: "video/webm"})]));
+  await page.evaluate(() => document.querySelectorAll("#clips li")[3].click());
+  await wait(900);
+  a = await st();
+  const marks = await page.evaluate(() => Array.from(document.querySelectorAll("#clips li span")).map(s => s.textContent));
+  check("a clip that cannot be decoded is marked and skipped", marks[3].startsWith("[can't play]") && fr(a).clip !== "broken.webm" && !fr(a).paused, marks[3]);
+
+  /* removing clips */
+  const before = (await st()).idx;
+  await page.evaluate(i => document.querySelectorAll("#clips li button")[i].click(), before);
+  await wait(400);
+  a = await st();
+  const left = await page.evaluate(() => window.__scv.clips.length);
+  check("removing the playing clip moves on to another", left === 3 && a.idx >= 0 && !fr(a).paused);
+  for(let i = 0; i < 3; i++){ await page.evaluate(() => document.querySelector("#clips li button").click()); await wait(120); }
+  a = await st();
+  check("removing every clip hides the video", a.idx === -1 && a.els.every(e => !e.shown && e.clip === null));
+
+  /* leave three clips playing for the rest of the run */
+  await set("xfade", 1);
+  await page.evaluate(() => window.__scv.addClips(window.__testClips));
+  await wait(600);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

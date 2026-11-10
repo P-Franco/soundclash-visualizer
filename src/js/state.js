@@ -7,6 +7,8 @@ export const S = {
   locked: false,      // MilkDrop preset lock (stops auto change)
   cycleSec: 30,       // MilkDrop auto change interval
   loopMode: "cycle",  // what happens when a clip ends: cycle | one | shuffle
+  xfade: 1,           // crossfade between clips in seconds, 0 = hard cut
+  xfadeLoop: true,    // also crossfade when a single clip loops back to its start
   graph: "bars",      // bars | curve
   sens: 0.6,          // hit sensitivity 0..1
   punch: 0.4,         // video punch on kick 0..1

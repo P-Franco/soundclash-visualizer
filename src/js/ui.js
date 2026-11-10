@@ -1,9 +1,9 @@
 /* Controls: saved settings bound to the drawer inputs, the slide-in drawer itself, fullscreen, and hotkeys. */
-import { $, stageMd, bg, panel } from "./dom.js";
+import { $, stageMd, panel } from "./dom.js";
 import { S } from "./state.js";
 import { bindRange, bindSelect, bindCheck, pct } from "./store.js";
 import { gain } from "./audio.js";
-import { syncLoop, nextClip } from "./clips.js";
+import { replan, nextClip, setRate } from "./clips.js";
 import { nextPreset } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
@@ -12,13 +12,15 @@ export function initSettings(){
   /* effects stay gentle by default: no video punch for people who ask for reduced motion (a saved value still wins) */
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("punch").value = 0;
   bindRange("gain", "gain", v => v.toFixed(1) + "x", v => { if(gain) gain.gain.value = v; });
-  bindRange("rate", "rate", v => v.toFixed(2) + "x", v => { bg.playbackRate = v; });
+  bindRange("rate", "rate", v => v.toFixed(2) + "x", setRate);
   bindRange("dimR", "dim", pct, v => { S.baseDim = v; $("dim").style.opacity = v; });
   bindRange("tintR", "tint", pct, v => { $("tint").style.opacity = v; });
   bindRange("cycle", "cycle", v => v + " s", v => { S.cycleSec = v; });
   bindRange("op", "op", pct, v => { stageMd.style.opacity = v; });
   bindSelect("blend", "blend", v => { stageMd.style.mixBlendMode = v; });
-  bindSelect("loopMode", "loop", v => { S.loopMode = v; syncLoop(); });
+  bindSelect("loopMode", "loop", v => { S.loopMode = v; replan(); });
+  bindRange("xfade", "xfade", v => v > 0 ? v.toFixed(1) + " s" : "off", v => { S.xfade = v; replan(); });
+  bindCheck("xfadeLoop", "xfadeLoop", v => { S.xfadeLoop = v; replan(); });
   bindCheck("hudOn", "hud", v => { S.hudOn = v; });
   bindCheck("jp", "jp", v => { S.jp = v; });
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });

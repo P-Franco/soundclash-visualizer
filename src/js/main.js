@@ -1,10 +1,10 @@
 /* Entry point: wires the modules together in a fixed order and runs the frame loop.
    The build bundles this into one classic script so the output works from file:// with no server. */
-import { $, bg } from "./dom.js";
+import { $, vidBox } from "./dom.js";
 import { S } from "./state.js";
 import { ctx, initAudio } from "./audio.js";
 import { DET, detMode, detVia, detError } from "./detect.js";
-import { clips, addClips, initClips } from "./clips.js";
+import { clips, addClips, initClips, tickClips, clipState } from "./clips.js";
 import { initPresets, markSwitch, tickPresets } from "./presets.js";
 import { analyse, drawHud } from "./hud.js";
 import { initSettings, initPanel, showPanel } from "./ui.js";
@@ -29,9 +29,10 @@ function frame(now){
   S.frameNo++;
   if(S.mdOn) tickPresets(now);
   analyse();
+  tickClips(now);
   const dec = Math.exp(-dt/0.14); for(const d of DET) d.env *= dec;
   const k = DET[0].env * S.punch;               // the kick pushes the video: slight zoom, and the darkening lifts
-  bg.style.transform = k > 0.004 ? "scale(" + (1 + 0.05*k).toFixed(4) + ")" : "none";
+  vidBox.style.transform = k > 0.004 ? "scale(" + (1 + 0.05*k).toFixed(4) + ")" : "none";
   dimEl.style.opacity = (S.baseDim * (1 - 0.8*k)).toFixed(3);
   drawHud(now);
 }
@@ -45,4 +46,4 @@ initPanel();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {clips, addClips, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};
+window.__scv = {clips, addClips, clipState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

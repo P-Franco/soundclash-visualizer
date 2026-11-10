@@ -9,7 +9,7 @@
 <body>
 
 <div id="stage">
-  <video id="bg" muted loop playsinline></video>
+  <div id="vids"><video id="bg" muted playsinline></video><video id="bg2" muted playsinline></video></div>
   <div id="tint"></div>
   <div id="dim"></div>
   <canvas id="md"></canvas>
@@ -49,6 +49,8 @@
       <option value="cycle">Play the next clip, loop the list</option>
       <option value="one">Loop the current clip</option>
       <option value="shuffle">Jump to a random clip</option></select></label>
+    <label><span>Crossfade between clips <b id="xfadeV"></b></span><input type="range" id="xfade" min="0" max="5" step="0.1" value="1"></label>
+    <label class="check"><input type="checkbox" id="xfadeLoop" checked> Crossfade when one clip loops too</label>
     <label><span>Clip speed <b id="rateV"></b></span><input type="range" id="rate" min="0.25" max="2" step="0.05" value="1"></label>
     <label><span>Darken video <b id="dimV"></b></span><input type="range" id="dimR" min="0" max="0.9" step="0.01" value="0.35"></label>
     <label><span>Red wash on video <b id="tintV"></b></span><input type="range" id="tintR" min="0" max="1" step="0.01" value="0.55"></label>
