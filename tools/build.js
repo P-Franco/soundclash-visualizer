@@ -41,19 +41,32 @@ function banner(){
   ].join("\n");
 }
 
+const bundleOptions = {
+  bundle: true,
+  format: "iife",
+  target: ["chrome110"],
+  charset: "utf8",
+  legalComments: "none",
+  minify,
+  write: false,
+  logLevel: "warning",
+};
+
+/* `import src from "./x.worklet.js"` gives the bundled worklet as a string.
+   The app loads it from a Blob URL, because a worklet file cannot be fetched from file://. */
+const workletAsText = {
+  name: "worklet-as-text",
+  setup(b){
+    b.onLoad({filter: /\.worklet\.js$/}, async args => {
+      const r = await esbuild.build({...bundleOptions, entryPoints: [args.path]});
+      return {contents: r.outputFiles[0].text, loader: "text"};
+    });
+  },
+};
+
 async function build(){
   const t = Date.now();
-  const app = await esbuild.build({
-    entryPoints: [path.join(srcDir, "js", "main.js")],
-    bundle: true,
-    format: "iife",
-    target: ["chrome110"],
-    charset: "utf8",
-    legalComments: "none",
-    minify,
-    write: false,
-    logLevel: "warning",
-  });
+  const app = await esbuild.build({...bundleOptions, entryPoints: [path.join(srcDir, "js", "main.js")], plugins: [workletAsText]});
   const css = read("src/styles.css");
   const vendor = VENDOR.map(f => inlineJs(read(f).trim())).join("\n");
 

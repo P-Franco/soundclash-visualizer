@@ -6,6 +6,7 @@ import { gain } from "./audio.js";
 import { syncLoop, nextClip } from "./clips.js";
 import { nextPreset } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
+import { syncSens } from "./detect.js";
 
 export function initSettings(){
   /* effects stay gentle by default: no video punch for people who ask for reduced motion (a saved value still wins) */
@@ -20,7 +21,7 @@ export function initSettings(){
   bindSelect("loopMode", "loop", v => { S.loopMode = v; syncLoop(); });
   bindCheck("hudOn", "hud", v => { S.hudOn = v; });
   bindCheck("jp", "jp", v => { S.jp = v; });
-  bindRange("sens", "sens", pct, v => { S.sens = v; });
+  bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
   bindRange("punch", "punch", pct, v => { S.punch = v; });
   bindSelect("graph", "graph", v => { S.graph = v; });
   bindCheck("mdOn", "md", v => { S.mdOn = v; stageMd.style.display = v ? "block" : "none"; });

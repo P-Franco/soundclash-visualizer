@@ -109,7 +109,7 @@ function writeWav(file, mono){
 const DEFAULT_OUT = path.join(__dirname, "..", "test-output", "drum-loop.wav");
 function generate(file = DEFAULT_OUT){ writeWav(file, render()); return file; }
 
-module.exports = { generate, PATTERN, DEFAULT_OUT };
+module.exports = { generate, render, PATTERN, DEFAULT_OUT, SAMPLE_RATE: SR };
 
 if(require.main === module){
   const out = generate(process.argv[2] ? path.resolve(process.argv[2]) : DEFAULT_OUT);

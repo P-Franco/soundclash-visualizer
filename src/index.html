@@ -78,8 +78,15 @@
     <label><span>Graph style</span><select id="graph">
       <option value="bars">LED bars, light up on hits</option>
       <option value="curve">Spectrum curve with note labels</option></select></label>
-    <label><span>Hit sensitivity <b id="sensV"></b></span><input type="range" id="sens" min="0" max="1" step="0.01" value="0.6"></label>
     <label class="check"><input type="checkbox" id="jp" checked> Japanese labels and イロハ note names</label>
+  </section>
+
+  <section>
+    <h2>HIT ZONES</h2>
+    <label><span>Hit sensitivity <b id="sensV"></b></span><input type="range" id="sens" min="0" max="1" step="0.01" value="0.6"></label>
+    <div id="zones"></div>
+    <div class="row"><button id="zoneAdd">Add zone</button><button id="zoneReset">Reset zones</button></div>
+    <div class="keys">A zone fires when the sound inside its range jumps. Zones are frequency ranges, not instruments. KICK also drives the video punch.</div>
   </section>
 
   <section>

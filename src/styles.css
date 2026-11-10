@@ -60,6 +60,17 @@ input[type=file].hide{position:absolute;opacity:0;width:1px;height:1px;pointer-e
 #clips li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #clips li button{padding:1px 7px;font-size:12px}
 #clips:empty::after{content:"No clips yet. Add files or drop them anywhere on the window.";color:var(--mute);line-height:1.5}
+/* hit zone editor: name, from Hz, to Hz, remove */
+#zones{display:flex;flex-direction:column;gap:5px}
+.zone{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--mute)}
+.zone input{font:inherit;font-size:12px;color:var(--pale);background:#24090e;border:1px solid var(--line);padding:5px 6px;border-radius:2px;min-width:0}
+.zone input:hover{border-color:var(--rose)}
+.zone .zname{flex:1 1 60px;width:60px;text-transform:uppercase}
+.zone .zname[readonly]{background:none;border-color:transparent;color:var(--rose);cursor:default}
+.zone .zhz{flex:0 0 72px;width:72px}
+.zone button,.zone .zpad{flex:0 0 24px;width:24px;padding:1px 0;font-size:12px}
+button:disabled{opacity:.45;cursor:default}
+button:disabled:hover{border-color:var(--line)}
 .keys{font-size:11px;color:var(--mute);line-height:1.7}
 .keys kbd{color:var(--pale);border:1px solid var(--line);padding:0 5px;font-family:inherit}
 #hint{position:fixed;right:14px;top:12px;font-size:11px;color:var(--mute);z-index:5;transition:opacity .4s;pointer-events:none}

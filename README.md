@@ -96,12 +96,27 @@ cannot feed back. Only the test track plays out loud.
   over the video, with a preset picker, auto change, strength and blend mode.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
+- **Hit zones**: edit the frequency range of KICK, SNARE and HAT, and add up to five zones
+  of your own. Each zone gets a pad in the status block and lights its part of the graph.
+
 ### About hit detection
 
 KICK, SNARE and HAT are frequency zones, not instrument recognition. The detector watches
 how fast the spectrum rises inside 40 to 120 Hz, 1800 to 5000 Hz and 7000 to 14000 Hz, and
 fires when that rise beats both the zone's running average and a fraction of its recent
 peak. A loud bass stab will light KICK. A vocal consonant can light SNARE.
+
+Change the ranges under **HIT ZONES** if your music sits elsewhere (a higher kick zone for
+drum and bass, say), or add a zone for something specific like a clap around 900 to 1600 Hz.
+KICK is always the zone that drives the video punch.
+
+Detection runs in an AudioWorklet, on the audio thread, about 94 times a second. A slow or
+stalled frame cannot make it miss a hit: hits wait in a queue and are counted when the
+page catches up. If a browser has no AudioWorklet, the same math runs on a 12 ms timer.
+
+One browser quirk worth knowing: Chrome and Edge refuse to load a worklet from a Blob URL
+when the page was opened from `file://`. The worklet source is therefore loaded from a
+`data:` URL on `file://`, and from a Blob URL when the page is served over http.
 
 ## Project layout
 
@@ -111,26 +126,38 @@ src/
   styles.css      all CSS
   js/
     main.js       entry point: start-up order and the frame loop
-    audio.js      audio context, input device, test track
-    detect.js     zone hit detectors
-    clips.js      video playlist, drag and drop
-    presets.js    MilkDrop layer and preset list
-    hud.js        spectrum analysis and graph drawing
-    ui.js         control bindings, drawer, hotkeys
-    stage.js      canvas sizing
-    state.js      shared settings and runtime state
-    store.js      localStorage helpers
-    dom.js        element lookups
+    audio.js            audio context, input device, test track
+    detect.js           zone list, starts the detector, receives hits
+    detect-core.js      the detection math (FFT, flux, thresholds), no browser APIs
+    detect.worklet.js   AudioWorklet shell around detect-core.js
+    zone-editor.js      HIT ZONES controls
+    clips.js            video playlist, drag and drop
+    presets.js          MilkDrop layer and preset list
+    hud.js              spectrum analysis and graph drawing
+    ui.js               control bindings, drawer, hotkeys
+    stage.js            canvas sizing
+    state.js            shared settings and runtime state
+    store.js            localStorage helpers
+    dom.js              element lookups
 tools/
   build.js            bundles everything into dist/soundclash-visualizer.html
   make-drum-loop.js   synthesizes the test drum loop (WAV)
-  verify.js           headless smoke test
+  test-detect.js      offline test of the detection math
+  verify.js           headless browser test of the built file
 ```
 
 The build inlines the CSS, Butterchurn, its preset pack and the bundled app code into a
-single classic `<script>` page, because ES modules do not load from `file://`.
+single classic `<script>` page, because ES modules do not load from `file://`. The worklet
+is bundled to a string inside the app code for the same reason.
 
 ## Testing
+
+```bash
+npm test
+```
+
+Runs the detection math in Node, with no browser: the FFT against a plain DFT, then the
+detector over the synthesized drum loop.
 
 ```bash
 npm run verify
@@ -142,12 +169,15 @@ built file from `file://` in headless Chrome or Edge with that loop as a fake au
 clicks Start, and checks:
 
 - hit counts in each zone against what the loop contains,
+- the same counts again while the main thread is blocked 80% of the time,
+- the hit zone editor (edit, add, rename, remove, reset),
 - every hotkey,
 - that nothing was logged as a console error and nothing was requested over the network.
 
-It writes a screenshot to `test-output/verify.png`. Options: `--md` keeps the MilkDrop
-layer on while measuring, `--browser=chrome|msedge|bundled|<path>` picks the browser,
-`--headed` shows the window.
+It writes screenshots to `test-output/`. Options: `--md` keeps the MilkDrop layer on while
+measuring, `--no-worklet` forces the timer fallback, `--https` serves the file from a
+pretend https origin (the Blob URL path), `--browser=chrome|msedge|bundled|<path>` picks
+the browser, `--headed` shows the window.
 
 Headless Chrome on a machine with no GPU renders the MilkDrop layer at a few frames per
 second, which starves the main thread. That is why the layer is off by default in this test.

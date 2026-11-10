@@ -3,12 +3,13 @@
 import { $, bg } from "./dom.js";
 import { S } from "./state.js";
 import { ctx, initAudio } from "./audio.js";
-import { DET, detect } from "./detect.js";
+import { DET, detMode, detVia, detError } from "./detect.js";
 import { clips, addClips, initClips } from "./clips.js";
 import { initPresets, markSwitch, tickPresets } from "./presets.js";
 import { analyse, drawHud } from "./hud.js";
 import { initSettings, initPanel, showPanel } from "./ui.js";
 import { sizeCanvases } from "./stage.js";
+import { initZoneEditor } from "./zone-editor.js";
 
 /* Called once audio is flowing (live input opened or a test track chosen). */
 function begin(){
@@ -17,8 +18,7 @@ function begin(){
   S.started = true; S.t0 = performance.now(); markSwitch(S.t0);
   $("start").style.display = "none";
   showPanel(true);
-  setInterval(detect, 12);                       // hit detection runs on its own clock so slow frames never miss a beat
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame);                  // hit detection is already running on the audio thread (see detect.js)
 }
 
 /* ---------- main loop ---------- */
@@ -40,8 +40,9 @@ initSettings();
 initAudio(begin);
 initPresets();
 initClips();
+initZoneEditor();
 initPanel();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {clips, addClips, DET};
+window.__scv = {clips, addClips, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

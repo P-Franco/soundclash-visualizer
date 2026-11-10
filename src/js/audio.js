@@ -6,8 +6,9 @@ import { S } from "./state.js";
 import { store } from "./store.js";
 import { engineLoaded, createViz, startPresets } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
+import { startDetector } from "./detect.js";
 
-export let ctx, gain, analyser, fast;
+export let ctx, gain, analyser;
 let stream, srcNode, fileNode, audioEl;
 let onBegin = () => {};
 
@@ -22,8 +23,6 @@ export function boot(){
   gain = ctx.createGain(); gain.gain.value = parseFloat($("gain").value);
   analyser = ctx.createAnalyser(); analyser.fftSize = 8192; analyser.smoothingTimeConstant = 0.6;
   gain.connect(analyser);
-  fast = ctx.createAnalyser(); fast.fftSize = 2048; fast.smoothingTimeConstant = 0;   // short window, used only for hit detection
-  gain.connect(fast);
   try{
     sizeCanvases();
     createViz(ctx);
@@ -32,6 +31,7 @@ export function boot(){
     ctx.close(); ctx = null; return false;
   }
   startPresets(gain);
+  startDetector(ctx, gain);                    // hit detection: AudioWorklet, loads in the background
   return true;
 }
 

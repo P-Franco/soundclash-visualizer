@@ -15,9 +15,11 @@ const cur = new Float32Array(N), raw = new Float32Array(N), hist = [];
 const NB = 56, barV = new Float32Array(NB), barCap = new Float32Array(NB), barPrev = new Float32Array(NB), barFlash = new Float32Array(NB),
       barLit = new Int16Array(NB), barG = new Float32Array(NB);
 
+/* A bar lights with a zone when any part of the bar's frequency span lies inside that zone. */
+const barEdge = new Float32Array(NB + 1);
 function barGlow(b){
-  const f = fAt((b + 0.5) * N / NB); let z = 0;
-  if(f <= 130) z = DET[0].env; else if(f >= 1800 && f <= 5000) z = DET[1].env; else if(f >= 7000) z = DET[2].env;
+  const lo = barEdge[b], hi = barEdge[b+1]; let z = 0;
+  for(let i=0;i<DET.length;i++){ const d = DET[i]; if(hi > d.lo && lo < d.hi && d.env > z) z = d.env; }
   return Math.min(1, Math.max(z, barFlash[b] * 0.7));
 }
 let fd, td;
@@ -30,6 +32,7 @@ function noteName(f){
   return S.jp ? NOTE_JP[n] + "-" + o : NOTE_EN[n] + o;
 }
 const fAt = i => F0 * Math.pow(F1/F0, i/(N-1));
+for(let b=0;b<=NB;b++) barEdge[b] = fAt(b * N / NB);
 function fmtTime(ms){ const s = ms/1000, m = Math.floor(s/60); return String(m).padStart(2,"0") + ":" + (s - m*60).toFixed(2).padStart(5,"0"); }
 function clipText(s, n){ return s.length > n ? s.slice(0, n-1) + "…" : s; }
 
@@ -115,11 +118,13 @@ export function drawHud(now){
   ly += 26*s;
   hctx.fillStyle = "#d9667e"; hctx.fillText(jp ? "ヒット" : "HITS", lx, ly);
   hctx.font = (13*s) + "px " + FONT; hctx.textAlign = "center";
+  /* one pad per zone; with more than five zones the pads narrow so they still fit the status block */
+  const padRoom = 12*s + Math.min(W - 24*s, 600*s) - vx - 6*s, padStep = Math.min(92*s, padRoom / DET.length);
   DET.forEach((d, i) => {
-    const px = vx + i*92*s, pw = 84*s, ph = 19*s;
+    const px = vx + i*padStep, pw = padStep - 8*s, ph = 19*s;
     hctx.fillStyle = "rgba(255,225,232," + (0.92*d.env).toFixed(3) + ")"; hctx.fillRect(px, ly, pw, ph);
     hctx.strokeStyle = "#d9667e"; hctx.lineWidth = 1.2*s; hctx.strokeRect(px, ly, pw, ph);
-    hctx.fillStyle = d.env > 0.5 ? "#1a0508" : "#f3e9ea"; hctx.fillText(jp ? d.jp : d.en, px + pw/2, ly + 3*s);
+    hctx.fillStyle = d.env > 0.5 ? "#1a0508" : "#f3e9ea"; hctx.fillText(jp ? d.jp : d.en, px + pw/2, ly + 3*s, pw - 4*s);
   });
   hctx.textAlign = "left";
 
@@ -160,7 +165,9 @@ export function drawHud(now){
   /* curve style: soft glow in a zone when its hit detector fires */
   for(const d of DET){
     if(d.env < 0.03) continue;
-    const zx0 = Math.max(x0, fx(d.lo)), zx1 = Math.min(x1, fx(d.hi)), zg = hctx.createLinearGradient(0, yT, 0, yB);
+    const zx0 = Math.max(x0, fx(d.lo)), zx1 = Math.min(x1, fx(d.hi));
+    if(zx1 <= zx0) continue;                                // zone lies outside the 40 Hz to 14 kHz graph
+    const zg = hctx.createLinearGradient(0, yT, 0, yB);
     zg.addColorStop(0, "rgba(255,170,190,0)"); zg.addColorStop(1, "rgba(255,170,190," + (0.3*d.env).toFixed(3) + ")");
     hctx.fillStyle = zg; hctx.fillRect(zx0, yT, zx1 - zx0, yB - yT);
   }

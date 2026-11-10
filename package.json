@@ -8,6 +8,7 @@
     "build": "node tools/build.js",
     "dev": "node tools/build.js --watch",
     "make-loop": "node tools/make-drum-loop.js",
+    "test": "node tools/test-detect.js",
     "verify": "node tools/verify.js"
   },
   "dependencies": {
