@@ -1,0 +1,69 @@
+/* layout: full-bleed stage (video > red tint > MilkDrop canvas > HUD canvas), slide-in control drawer on the right */
+:root{
+  --ink:#0c0304;
+  --panel:#170609;
+  --line:#4a1a22;
+  --rose:#d9667e;
+  --pale:#f3e9ea;
+  --mute:#9a6f77;
+  --mono:"MS Gothic","Osaka-Mono","DotGothic16",Consolas,"Courier New",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--pale);font-family:var(--mono);overflow:hidden}
+#stage{position:fixed;inset:0;isolation:isolate;background:var(--ink)}
+#stage>*{position:absolute;inset:0;width:100%;height:100%}
+#bg{object-fit:cover;display:none}
+#tint{background:#b3122c;mix-blend-mode:color;opacity:.55;pointer-events:none;display:none}
+#dim{background:#000;opacity:.35;pointer-events:none}
+#md{mix-blend-mode:screen}
+#hud{pointer-events:none}
+body.idle{cursor:none}
+
+/* start screen */
+#start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(ellipse at 30% 20%,#2a0a11 0,#0c0304 60%);z-index:20}
+#start .card{max-width:560px;display:flex;flex-direction:column;gap:18px}
+#start h1{margin:0;font-size:30px;letter-spacing:.06em;font-weight:400;text-wrap:balance}
+#start h1 small{display:block;font-size:13px;color:var(--rose);letter-spacing:.3em;margin-bottom:10px}
+#start p{margin:0;color:var(--mute);line-height:1.6;font-size:14px}
+#start .row{display:flex;flex-wrap:wrap;gap:10px}
+#err{color:#ffb4b4;font-size:13px;line-height:1.5;min-height:1em}
+
+button,select,input[type=file]::file-selector-button,.filebtn{
+  font:inherit;font-size:13px;color:var(--pale);background:#24090e;border:1px solid var(--line);
+  padding:8px 12px;cursor:pointer;border-radius:2px}
+button:hover,.filebtn:hover,select:hover{border-color:var(--rose)}
+button.primary{background:var(--rose);color:#1a0508;border-color:var(--rose);font-weight:700;padding:11px 18px;font-size:14px}
+button:focus-visible,select:focus-visible,input:focus-visible,.filebtn:focus-within{outline:2px solid var(--pale);outline-offset:2px}
+select{width:100%;padding:7px 8px}
+input[type=range]{width:100%;accent-color:var(--rose)}
+input[type=file].hide{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+
+/* control drawer */
+#panel{position:fixed;top:0;right:0;bottom:0;width:320px;max-width:92vw;background:rgba(23,6,9,.93);
+  border-left:1px solid var(--line);padding:16px;overflow-y:auto;z-index:10;display:flex;flex-direction:column;gap:16px;
+  transform:translateX(100%);transition:transform .25s ease;backdrop-filter:blur(6px)}
+#panel.show{transform:none}
+@media (prefers-reduced-motion:reduce){#panel{transition:none}}
+#panel h2{margin:0 0 8px;font-size:12px;font-weight:400;color:var(--rose);letter-spacing:.25em;
+  border-bottom:1px solid var(--line);padding-bottom:6px}
+#panel section{display:flex;flex-direction:column;gap:9px}
+#panel label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute)}
+#panel label.check{flex-direction:row;align-items:center;gap:8px;color:var(--pale);cursor:pointer}
+#panel label span b{color:var(--pale);font-weight:400;float:right}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>button{flex:1}
+#clips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12px}
+#clips li{display:flex;gap:6px;align-items:center;padding:5px 6px;border:1px solid var(--line);cursor:pointer}
+#clips li.on{border-color:var(--rose);color:var(--pale)}
+#clips li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#clips li button{padding:1px 7px;font-size:12px}
+#clips:empty::after{content:"No clips yet. Add files or drop them anywhere on the window.";color:var(--mute);line-height:1.5}
+.keys{font-size:11px;color:var(--mute);line-height:1.7}
+.keys kbd{color:var(--pale);border:1px solid var(--line);padding:0 5px;font-family:inherit}
+#hint{position:fixed;right:14px;top:12px;font-size:11px;color:var(--mute);z-index:5;transition:opacity .4s;pointer-events:none}
+body.idle #hint{opacity:0}
+#drop{position:fixed;inset:12px;border:2px dashed var(--rose);z-index:30;display:none;align-items:center;justify-content:center;
+  font-size:20px;background:rgba(12,3,4,.7);pointer-events:none}
+#drop.on{display:flex}

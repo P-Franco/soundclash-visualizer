@@ -1,0 +1,21 @@
+# dependencies and build output
+node_modules/
+dist/
+
+# media must never be committed (clips, test tracks, the generated drum loop)
+*.mp4
+*.webm
+*.mkv
+*.mov
+*.m4v
+*.mp3
+*.wav
+*.flac
+
+# verify script output (screenshots, reports)
+test-output/
+
+# editor and OS noise
+.DS_Store
+Thumbs.db
+*.log

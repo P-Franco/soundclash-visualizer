@@ -1,0 +1,21 @@
+{
+  "name": "soundclash-visualizer",
+  "version": "0.2.0",
+  "description": "Browser music visualizer for live DJ sets: line-in reactive LED bars and MilkDrop over looping video clips, built into one offline HTML file.",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.js",
+    "dev": "node tools/build.js --watch",
+    "make-loop": "node tools/make-drum-loop.js",
+    "verify": "node tools/verify.js"
+  },
+  "dependencies": {
+    "butterchurn": "2.6.7",
+    "butterchurn-presets": "2.4.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "playwright-core": "1.64.1"
+  }
+}

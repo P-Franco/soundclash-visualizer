@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soundclash Visualizer</title>
+<!-- build:css -->
+</head>
+<body>
+
+<div id="stage">
+  <video id="bg" muted loop playsinline></video>
+  <div id="tint"></div>
+  <div id="dim"></div>
+  <canvas id="md"></canvas>
+  <canvas id="hud"></canvas>
+</div>
+
+<div id="hint">move mouse for controls &middot; H hide &middot; F fullscreen</div>
+<div id="drop">Drop video clips (background) or an audio file (test track)</div>
+
+<div id="start">
+  <div class="card">
+    <h1><small>LINE-IN / MIC REACTIVE</small>Soundclash Visualizer</h1>
+    <p>Looping video clips with a live graph on top: LED bars that light up on kicks, snares and hats, plus an optional MilkDrop layer, all driven by whatever your sound card hears. Plug the DJ feed into line-in (or just let the mic hear the room), pick that input, and go fullscreen.</p>
+    <div class="row">
+      <button class="primary" id="goMic">Start with audio input</button>
+      <label class="filebtn" for="testAudio">Test with an audio file<input class="hide" type="file" id="testAudio" accept="audio/*"></label>
+    </div>
+    <div id="err" role="alert"></div>
+    <p>Open this file in Chrome or Edge. The browser asks for microphone permission once per launch; nothing is recorded or sent anywhere, and everything runs offline.</p>
+  </div>
+</div>
+
+<aside id="panel" aria-label="Controls">
+  <section>
+    <h2>AUDIO IN</h2>
+    <label><span>Input device</span><select id="device"></select></label>
+    <label><span>Sensitivity <b id="gainV"></b></span><input type="range" id="gain" min="0.2" max="8" step="0.1" value="1.5"></label>
+    <div class="row"><label class="filebtn" for="testAudio2">Play a test track<input class="hide" type="file" id="testAudio2" accept="audio/*"></label></div>
+  </section>
+
+  <section>
+    <h2>VIDEO CLIPS</h2>
+    <div class="row"><label class="filebtn" for="vids">Add clips<input class="hide" type="file" id="vids" accept="video/*" multiple></label>
+      <button id="nextClip">Next clip</button></div>
+    <ul id="clips"></ul>
+    <label><span>When a clip ends</span><select id="loopMode">
+      <option value="cycle">Play the next clip, loop the list</option>
+      <option value="one">Loop the current clip</option>
+      <option value="shuffle">Jump to a random clip</option></select></label>
+    <label><span>Clip speed <b id="rateV"></b></span><input type="range" id="rate" min="0.25" max="2" step="0.05" value="1"></label>
+    <label><span>Darken video <b id="dimV"></b></span><input type="range" id="dimR" min="0" max="0.9" step="0.01" value="0.35"></label>
+    <label><span>Red wash on video <b id="tintV"></b></span><input type="range" id="tintR" min="0" max="1" step="0.01" value="0.55"></label>
+    <label><span>Video punch on kick <b id="punchV"></b></span><input type="range" id="punch" min="0" max="1" step="0.01" value="0.4"></label>
+  </section>
+
+  <section>
+    <h2>MILKDROP LAYER</h2>
+    <label class="check"><input type="checkbox" id="mdOn" checked> Show the MilkDrop layer</label>
+    <label><span>Preset</span><select id="preset"></select></label>
+    <div class="row"><button id="rand">Random</button><button id="next">Next</button></div>
+    <label class="check"><input type="checkbox" id="lock"> Lock this preset</label>
+    <label><span>Auto change every <b id="cycleV"></b></span><input type="range" id="cycle" min="5" max="120" step="5" value="30"></label>
+    <label><span>Strength over video <b id="opV"></b></span><input type="range" id="op" min="0" max="1" step="0.01" value="0.85"></label>
+    <label><span>Blend with video</span><select id="blend">
+      <option value="screen">Screen (black turns see-through)</option>
+      <option value="lighten">Lighten</option>
+      <option value="plus-lighter">Add (brightest)</option>
+      <option value="overlay">Overlay</option>
+      <option value="difference">Difference</option>
+      <option value="normal">Normal (covers video)</option></select></label>
+  </section>
+
+  <section>
+    <h2>GRAPH</h2>
+    <label class="check"><input type="checkbox" id="hudOn" checked> Show graph and status text</label>
+    <label><span>Graph style</span><select id="graph">
+      <option value="bars">LED bars, light up on hits</option>
+      <option value="curve">Spectrum curve with note labels</option></select></label>
+    <label><span>Hit sensitivity <b id="sensV"></b></span><input type="range" id="sens" min="0" max="1" step="0.01" value="0.6"></label>
+    <label class="check"><input type="checkbox" id="jp" checked> Japanese labels and イロハ note names</label>
+  </section>
+
+  <section>
+    <div class="row"><button id="fs">Fullscreen</button><button id="hide">Hide controls</button></div>
+    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off</div>
+    <div class="keys">Visual engine: Butterchurn (MilkDrop for WebGL, MIT license) with its community preset pack.</div>
+  </section>
+</aside>
+
+<!-- build:vendor -->
+<!-- build:app -->
+</body>
+</html>
