@@ -21,6 +21,10 @@ export function initSettings(){
   bindSelect("loopMode", "loop", v => { S.loopMode = v; replan(); });
   bindRange("xfade", "xfade", v => v > 0 ? v.toFixed(1) + " s" : "off", v => { S.xfade = v; replan(); });
   bindCheck("xfadeLoop", "xfadeLoop", v => { S.xfadeLoop = v; replan(); });
+  bindCheck("cutOn", "cutOn", v => { S.cutOn = v; replan(); });
+  bindSelect("cutMode", "cutMode", v => { S.cutMode = v; replan(); });
+  bindRange("cutEvery", "cutEvery", v => v + (v === 1 ? " kick" : " kicks"), v => { S.cutEvery = v; });
+  bindRange("cutGap", "cutGap", v => v.toFixed(1) + " s", v => { S.cutGap = v; });
   bindCheck("hudOn", "hud", v => { S.hudOn = v; });
   bindCheck("jp", "jp", v => { S.jp = v; });
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
@@ -57,6 +61,7 @@ export function initPanel(){
     else if(k === "s"){ $("hudOn").checked = !S.hudOn; $("hudOn").dispatchEvent(new Event("change")); }
     else if(k === "g"){ const g = $("graph"); g.value = S.graph === "bars" ? "curve" : "bars"; g.dispatchEvent(new Event("change")); }
     else if(k === "m"){ $("mdOn").checked = !S.mdOn; $("mdOn").dispatchEvent(new Event("change")); }
+    else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
     else if(k === " "){ e.preventDefault(); $("lock").checked = S.locked = !S.locked; }
   });
 }

@@ -44,6 +44,7 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `S` | Graph and status text on/off |
 | `G` | Switch graph style: LED bars or spectrum curve |
 | `M` | MilkDrop layer on/off |
+| `C` | Beat cuts on/off |
 
 ## Wiring a DJ mixer into line-in
 
@@ -99,6 +100,11 @@ cannot feed back. Only the test track plays out loud.
   over the video, with a preset picker, auto change, strength and blend mode.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
+- **Beat cuts**: optionally cut the video on the kick, every N kicks, either to another
+  clip or to a random point in the current one, with a minimum time between cuts. Off by
+  default. While it is on, the CLIP line in the status block counts kicks toward the next
+  cut. Cuts are always hard cuts and use the preloaded second video, so they land on the
+  beat instead of after a file load.
 - **Hit zones**: edit the frequency range of KICK, SNARE and HAT, and add up to five zones
   of your own. Each zone gets a pad in the status block and lights its part of the graph.
 
@@ -111,7 +117,7 @@ peak. A loud bass stab will light KICK. A vocal consonant can light SNARE.
 
 Change the ranges under **HIT ZONES** if your music sits elsewhere (a higher kick zone for
 drum and bass, say), or add a zone for something specific like a clap around 900 to 1600 Hz.
-KICK is always the zone that drives the video punch.
+KICK is always the zone that drives the video punch and beat cuts.
 
 Detection runs in an AudioWorklet, on the audio thread, about 94 times a second. A slow or
 stalled frame cannot make it miss a hit: hits wait in a queue and are counted when the
@@ -183,6 +189,7 @@ clicks Start, and checks:
 - the hit zone editor (edit, add, rename, remove, reset),
 - clip playback, using short clips the page records for itself: crossfades, hard cuts,
   each end-of-clip mode, a file that cannot be decoded, removing clips,
+- beat cuts: cut rate, the minimum gap, random-point mode, the single-clip fallback,
 - every hotkey,
 - that nothing was logged as a console error and nothing was requested over the network.
 

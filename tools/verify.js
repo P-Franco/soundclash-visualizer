@@ -105,7 +105,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function"}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn")}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -131,6 +131,7 @@ async function main(){
 
   if(info.features.zones) await zones(page);
   if(info.features.clipState) await clipTests(page);
+  if(info.features.cuts) await cutTests(page);
   await hotkeys(page);
 
   section("storage");
@@ -333,6 +334,73 @@ async function clipTests(page){
   await set("xfade", 1);
   await page.evaluate(() => window.__scv.addClips(window.__testClips));
   await wait(600);
+}
+
+/* ---------- beat-synced cuts (the loop has two kicks a second) ---------- */
+async function cutTests(page){
+  section("beat cuts");
+  const st = () => page.evaluate(() => window.__scv.clipState());
+  const set = (id, value) => page.evaluate(({id, value}) => {
+    const el = document.getElementById(id);
+    if(el.type === "checkbox") el.checked = value; else el.value = value;
+    el.dispatchEvent(new Event(el.type === "range" ? "input" : "change"));
+  }, {id, value});
+  const wait = ms => page.waitForTimeout(ms);
+  const fr = s => s.els[s.front], bk = s => s.els[1 - s.front];
+  /* watch for a while: how many cuts, how many clip changes, and whether a fade was ever seen */
+  const watch = ms => page.evaluate(ms => new Promise(res => {
+    const s0 = window.__scv.clipState(); let changes = 0, prev = s0.idx, faded = false, jumps = 0, lastT = null;
+    const t0 = performance.now();
+    const tick = () => {
+      const s = window.__scv.clipState(), t = s.els[s.front].t;
+      if(s.idx !== prev){ changes++; prev = s.idx; }
+      if(s.fading) faded = true;
+      if(lastT !== null && Math.abs(t - lastT) > 0.4) jumps++;
+      lastT = t;
+      if(performance.now() - t0 < ms) requestAnimationFrame(tick); else res({cuts: s.cuts - s0.cuts, changes, faded, jumps});
+    };
+    tick();
+  }), ms);
+
+  await set("loopMode", "cycle"); await set("xfade", 1); await set("cutOn", false);
+  let w = await watch(1500);
+  check("off by default: no cuts", w.cuts === 0);
+
+  await set("cutMode", "clip"); await set("cutEvery", 2); await set("cutGap", 0.5); await set("cutOn", true);
+  await wait(300);
+  let a = await st();
+  check("the clip a cut will jump to is preloaded", bk(a).ready && bk(a).clip !== fr(a).clip, bk(a).clip);
+  w = await watch(4200);
+  check("every 2 kicks: about one cut a second, each to another clip", w.cuts >= 3 && w.cuts <= 5 && w.changes === w.cuts, w.cuts + " cuts in 4.2 s");
+  check("beat cuts are hard cuts even with a 1 s crossfade set", w.faded === false);
+
+  await set("cutGap", 3); await wait(200);
+  w = await watch(6400);
+  check("a 3 s minimum gap holds the cuts back", w.cuts >= 1 && w.cuts <= 3, w.cuts + " cuts in 6.4 s");
+
+  await set("cutMode", "point"); await set("cutGap", 0.5); await wait(1200);
+  a = await st();
+  check("random-point mode parks a second copy of the clip at the jump target", bk(a).clip === fr(a).clip && typeof a.planAt === "number", "target " + (a.planAt === null || a.planAt === undefined ? "none" : a.planAt.toFixed(2) + " s"));
+  w = await watch(4200);
+  check("random point: cuts stay inside the same clip and the picture jumps", w.cuts >= 3 && w.changes === 0 && w.jumps >= 3, w.cuts + " cuts, " + w.jumps + " jumps, " + w.changes + " clip changes");
+
+  /* one clip only: "another clip" has nowhere to go, so it falls back to a random point */
+  await set("cutMode", "clip");
+  await page.evaluate(() => { while(window.__scv.clips.length > 1){ const s = window.__scv.clipState(), b = document.querySelectorAll("#clips li button"); b[s.idx === 0 ? 1 : 0].click(); } });
+  await wait(900);
+  w = await watch(3200);
+  check("with a single clip, a cut jumps to a random point in it", w.cuts >= 2 && w.jumps >= 2 && (await st()).idx === 0, w.cuts + " cuts");
+
+  await page.screenshot({path: path.join(outDir, "verify-cuts.png")});
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.keyboard.press("c"); await wait(150);
+  const off = await page.evaluate(() => document.getElementById("cutOn").checked);
+  check("C toggles beat cuts", off === false);
+  w = await watch(1500);
+  check("and no more cuts once off", w.cuts === 0);
+
+  await page.evaluate(() => window.__scv.addClips(window.__testClips.slice(1)));
+  await wait(500);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

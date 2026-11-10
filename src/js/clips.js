@@ -10,6 +10,7 @@
 import { $, vids } from "./dom.js";
 import { S } from "./state.js";
 import { useFile } from "./audio.js";
+import { onHit } from "./detect.js";
 
 export const clips = [];       // {name, url, bad}
 export let clipIdx = -1;
@@ -19,6 +20,9 @@ let mix = 0;
 let fade = null;               // {from, t0, dur} while a crossfade runs (ms)
 let pend = null;               // {el, dur} a switch waiting for its video to be ready
 let plan = null;               // {idx, at} what the back element has been loaded with
+let kicks = 0;                 // kicks counted since the last beat cut
+let lastCut = 0;               // performance.now() of the last clip change of any kind
+let cuts = 0;                  // beat cuts made so far (for tests)
 
 const front = () => vids[cur], back = () => vids[1 - cur];
 const isVideo = f => f.type.startsWith("video/") || /\.(mp4|webm|mkv|mov|m4v)$/i.test(f.name);
@@ -68,7 +72,7 @@ function markReady(el){
 function switchTo(idx, dur, at){
   if(fade){ const f = fade.from; fade = null; setMix(cur); f.pause(); }      // a fade in progress snaps to its end
   const clip = clips[idx];
-  clipIdx = idx;
+  clipIdx = idx; lastCut = performance.now();
   showVideo(true); renderClips();
   const el = back();
   pend = {el, dur: dur || 0};
@@ -109,19 +113,22 @@ function pickNext(){
   for(let k = 1; k <= n; k++){ const i = (clipIdx + k) % n; if(!clips[i].bad) return i; }
   return clipIdx;
 }
-/* Decide what the back element should hold, or null for nothing. */
+/* Decide what the back element should hold, or null for nothing.
+   Beat cuts come first: they have to land on the beat, so their target must be the one that is ready. */
 function planNext(){
   if(clipIdx < 0) return null;
-  const others = playable() - (clips[clipIdx].bad ? 0 : 1);
-  if(others > 0 && S.loopMode !== "one") return {idx: pickNext()};
+  const others = clips.some((c, i) => i !== clipIdx && !c.bad);
+  if(S.cutOn && (S.cutMode === "point" || !others)){ const at = randomPoint(); if(at !== null) return {idx: clipIdx, at}; }
+  if(S.cutOn && others) return {idx: pickNext()};
+  if(others && S.loopMode !== "one") return {idx: pickNext()};
   if(S.xfade > 0 && S.xfadeLoop) return {idx: clipIdx};           // the same clip again, for a crossfaded loop
-  if(others > 0) return {idx: pickNext()};                         // looping one clip: still keep the next one ready for V
+  if(others) return {idx: pickNext()};                             // looping one clip: still keep the next one ready for V
   return null;
 }
 function preloadNext(){
   if(fade || pend) return;
   plan = planNext();
-  if(plan) prepare(back(), clips[plan.idx], clipIn(clips[plan.idx]));
+  if(plan) prepare(back(), clips[plan.idx], plan.at === undefined ? clipIn(clips[plan.idx]) : plan.at);
 }
 /* Call when a setting or the list changes what should come next. */
 export function replan(){ if(clipIdx >= 0){ syncLoop(); preloadNext(); } }
@@ -144,6 +151,35 @@ function advance(dur){
   }
   else switchTo(nextIdx(), dur);
 }
+
+/* ---------- beat-synced cuts ---------- */
+/* A random start point inside the current clip, away from where it is now and not right at the end. */
+function randomPoint(){
+  const el = front(), clip = clips[clipIdx], a = clipIn(clip), len = clipOut(clip, el) - a;
+  if(el._clip !== clip || !isFinite(len) || len < 1) return null;
+  const room = len - Math.min(2, len * 0.25);
+  let t = a, n = 0;
+  do { t = a + Math.random() * room; } while(Math.abs(t - el.currentTime) < len * 0.1 && ++n < 8);
+  return t;
+}
+
+/* Runs for every kick. Cuts on the first kick where both conditions hold: N kicks counted, and the minimum time passed. */
+function onKick(age){
+  if(!S.cutOn || clipIdx < 0){ kicks = 0; return; }
+  kicks++;
+  if(age > 0.25) return;                        // reported late (a stalled frame): count it, but do not cut off the beat
+  if(kicks < S.cutEvery || performance.now() - lastCut < S.cutGap * 1000 || pend) return;
+  kicks = 0;
+  const others = clips.some((c, i) => i !== clipIdx && !c.bad);
+  if(S.cutMode === "clip" && others){ cuts++; switchTo(nextIdx(), 0); return; }
+  /* a random point in this clip; also what happens when there is no other clip to jump to */
+  const at = plan && plan.idx === clipIdx && plan.at !== undefined ? plan.at : randomPoint();
+  if(at === null) return;
+  cuts++; switchTo(clipIdx, 0, at);
+}
+
+/* For the status block: kicks counted toward the next cut, or null when beat cuts are off. */
+export function cutInfo(){ return S.cutOn && clipIdx >= 0 ? {kicks: Math.min(kicks, S.cutEvery), every: S.cutEvery} : null; }
 
 /* ---------- public controls ---------- */
 export function addClips(files){
@@ -236,6 +272,7 @@ export function initClips(){
     el.addEventListener("ended", () => { if(el === front() && !fade && !pend) advance(clipIdx >= 0 ? fadeFor(clips[clipIdx], el) : 0); });
     el.addEventListener("error", () => onError(el));
   }
+  onHit((zone, i, age) => { if(i === 0) onKick(age); });       // the kick zone is always first
   $("vids").addEventListener("change", e => { addClips(e.target.files); e.target.value = ""; });
   $("nextClip").addEventListener("click", nextClip);
 
@@ -256,7 +293,7 @@ export function initClips(){
 
 /* test hook: a snapshot of the playback state */
 export function clipState(){
-  return {idx: clipIdx, front: cur, mix, fading: !!fade, pending: !!pend, plan: plan && plan.idx,
+  return {idx: clipIdx, front: cur, mix, fading: !!fade, pending: !!pend, plan: plan && plan.idx, planAt: plan && plan.at, cuts, kicks,
     els: vids.map(el => ({clip: el._clip ? el._clip.name : null, ready: !!el._ready, paused: el.paused, loop: el.loop,
       t: el.currentTime, dur: el.duration, rate: el.playbackRate, shown: el.style.display !== "none"}))};
 }
