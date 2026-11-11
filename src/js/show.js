@@ -9,19 +9,18 @@
      style    "solid" | "bars" | "pulse"     the border style ("off" works too: no border)
      x, y     border width, percent of the screen: x = left and right, y = top and bottom
      length   how long it lasts, in scene lengths (the Scene length slider sets one length in seconds)
-     graphs   which graph styles appear during the scene, in order. A graph is up nearly all the time:
-              each one stays until a quick dip at the end of its turn, where the next takes over.
-              "bars" = LED bars, "curve" = spectrum curve. A round picture only has the curve (drawn
-              round the inside of its edge), so "bars" shows the curve there. */
+     graphs   which graph styles show during the scene, in order: "bars" = LED bars, "curve" = spectrum
+              curve. A graph is always up. The scene's time is shared equally between the ones listed
+              (two graphs: half each), with a quick handover between them. A round picture only has the
+              curve (drawn round the inside of its edge), so there the curve stays up the whole scene. */
 import { S } from "./state.js";
 
 export const SHOW = {
   zoom: 1,          // video zoom for the whole show: 1 = 100%
   morph: 3,         // seconds one border takes to turn into the next
-  fade: 0.5,        // seconds the graph takes to fade in or out
-  gap: 0.9,         // seconds between one graph going down and the next coming up: the only time no graph shows
+  fade: 0.5,        // seconds the graph takes to fade down or up when one graph hands over to another
   scenes: [
-    {shape: "rect", style: "solid", x: 14, y: 15, length: 2, graphs: ["bars", "curve", "bars", "curve"]},
+    {shape: "rect", style: "solid", x: 14, y: 15, length: 2, graphs: ["bars", "curve"]},
     {shape: "oval", style: "solid", x: 14, y: 10, length: 1, graphs: ["curve"]},
     {shape: "oval", style: "bars",  x: 14, y: 10, length: 1, graphs: ["curve"]},
     {shape: "oval", style: "pulse", x: 14, y: 10, length: 1, graphs: ["curve"]},
@@ -46,12 +45,15 @@ export function showAt(seconds){
   const s = sc[i], n = s.graphs ? s.graphs.length : 0;
   let graph = 0, gstyle = "curve";
   if(n){
-    /* The scene is cut into one slot per graph. A graph is up for its whole slot except a short dip at
-       the very end, where it hands over to the next one. That dip is the only time no graph shows.
-       The graph stays up while the border changes: it follows the outline as it moves, and the flat
-       graph dissolves into the curved one as the picture rounds off (see rectGraph and ringGraph in look.js). */
-    const slot = s.length * unit / n, j = Math.min(n - 1, Math.floor(t / slot)), v = t - j * slot;
-    gstyle = s.graphs[j]; graph = v < slot - SHOW.gap ? 1 : 0;
+    /* A graph is up for the whole scene. The scene's time is shared equally between the graphs listed:
+       two graphs, half each. When the style changes, look.js takes the graph down, swaps it and brings
+       it straight back, which is the only moment no graph shows.
+       A round picture has only one graph, the curve, so there it simply stays up all the way through,
+       however many are listed. The graph also stays up while the border changes: it follows the outline,
+       and the flat graph dissolves into the curved one as the picture rounds off (rectGraph and ringGraph
+       in look.js). */
+    const slot = s.length * unit / n, j = Math.min(n - 1, Math.floor(t / slot));
+    graph = 1; gstyle = s.shape === "rect" ? s.graphs[j] : "curve";
   }
   return {index: i, scene: s, graph, gstyle};
 }

@@ -98,7 +98,8 @@ cannot feed back. Only the test track plays out loud.
 - **Show mode**: one switch (`X`) and the looks play by themselves, forever. The border
   goes through every scene in the show, each one turning smoothly into the next (a
   rectangle rounds off into an oval, widths glide, bars and pulse fade in and out). A graph
-  is up nearly all the time, with a quick handover from one to the next. See "Changing the show" below.
+  is always up: the rectangle shows LED bars for half its time and the curve for the other
+  half, and the oval and blob keep the curve up all the way through. See "Changing the show" below.
 - **Random order**: by default every clip plays all the way through, the next one is drawn at
   random from the clips that have not played yet, and when all have played a fresh random
   order starts. The same clip never plays twice in a row. "When a clip ends" can also be
@@ -184,7 +185,7 @@ when the page was opened from `file://`. The worklet source is therefore loaded 
 The show is one table at the top of `src/js/show.js`. Each line is a scene:
 
 ```js
-{shape: "rect", style: "solid", x: 14, y: 15, length: 2, graphs: ["bars", "curve", "bars", "curve"]},
+{shape: "rect", style: "solid", x: 14, y: 15, length: 2, graphs: ["bars", "curve"]},
 {shape: "oval", style: "bars",  x: 14, y: 10, length: 1, graphs: ["curve"]},
 {shape: "blob", style: "pulse", x: 19, y: 18, length: 1, graphs: ["curve"]},
 ```
@@ -193,14 +194,15 @@ The show is one table at the top of `src/js/show.js`. Each line is a scene:
 - `x`, `y`: border width in percent of the screen, left/right and top/bottom.
 - `length`: how long the scene lasts, in scene lengths. The Scene length slider sets how
   many seconds one length is, so the whole show speeds up or slows down together.
-- `graphs`: the graph styles that appear during the scene, in order. A graph is up nearly
-  all the time: each stays until a quick dip at the end of its turn, where the next takes
-  over. The graph stays up while the border changes, and the flat graph dissolves into the
-  curved one as the picture rounds off.
+- `graphs`: the graph styles that show during the scene, in order. A graph is always up. The
+  scene's time is shared equally between the ones listed (two graphs: half each), with a
+  quick handover between them. A round picture only has the curve, so there it stays up the
+  whole scene. The graph also stays up while the border changes, and the flat graph
+  dissolves into the curved one as the picture rounds off.
 
 Reorder, edit, add or delete lines and rebuild. `zoom`, `morph` (seconds a border takes to
-turn into the next), `fade` (seconds the graph takes to fade) and `gap` (seconds between one
-graph going down and the next coming up) are just above the table.
+turn into the next) and `fade` (seconds the graph takes to fade down or up at a handover)
+are just above the table.
 
 How it works: nothing draws from the settings directly. `look.js` holds the border, graph
 and zoom as plain numbers (squareness, blob amount, widths, how much of each style shows).

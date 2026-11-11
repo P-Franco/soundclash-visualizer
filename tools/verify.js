@@ -788,12 +788,15 @@ async function showTests(page){
   }, {total, morph: SHOW.morph});
   const ups = {};
   plan.rows.forEach((p, k) => { if(p.g && !(k && plan.rows[k-1].g)){ const key = p.shape + " " + (p.shape === "rect" ? p.st : "curve"); ups[key] = (ups[key] || 0) + 1; } });
-  check("the graph comes up at least twice on every shape, and on the rectangle both styles do", ups["rect bars"] >= 2 && ups["rect curve"] >= 2 && ups["oval curve"] >= 2 && ups["blob curve"] >= 2, Object.entries(ups).map(([k, v]) => k + " x" + v).join(", "));
+  const rectRows = plan.rows.filter(r => r.i === 0), mid = Math.floor(rectRows.length / 2);
+  check("the rectangle has two graphs, half its time each: LED bars, then the curve", rectRows.slice(0, mid - 1).every(r => r.st === "bars") && rectRows.slice(mid + 1).every(r => r.st === "curve"), "bars for " + (rectRows.filter(r => r.st === "bars").length * 0.25) + " s, curve for " + (rectRows.filter(r => r.st === "curve").length * 0.25) + " s");
+  const swaps = plan.rows.filter((r, k) => r.st !== plan.rows[(k + plan.rows.length - 1) % plan.rows.length].st).length;
+  check("on the oval and the blob the curve runs the whole way through, with no changes", plan.rows.filter(r => r.i > 0).every(r => r.st === "curve" && r.g === 1) && swaps === 2, swaps + " graph changes in a whole loop: bars to curve, and back to bars when the loop restarts");
   /* how long the graph is ever asked to be away, anywhere in the loop (the end of the loop runs into its start) */
   let longest = 0, run = 0;
   for(const r of plan.rows.concat(plan.rows)){ run = r.g ? 0 : run + 1; if(run > longest) longest = run; }
   const upShare = plan.rows.filter(r => r.g).length / plan.rows.length;
-  check("no long gap between graphs anywhere in the show", longest * 0.25 <= SHOW.gap + 0.3, "longest gap " + (longest * 0.25).toFixed(2) + " s; the graph is up " + Math.round(upShare * 100) + "% of the time at this test's short scenes");
+  check("the show never asks for the graph to be away", longest === 0 && upShare === 1);
   check("the graph stays up while the border changes", plan.rows.some((r, k) => k > 0 && plan.rows[k-1].i !== r.i && r.g === 1));
 
   /* one border turning into the next: the end of the rectangle scene into the oval */
@@ -809,6 +812,10 @@ async function showTests(page){
   await wait(1600);
   const after = await look();
   check("the curve is already up on the oval a few seconds into the change", after.graph > 0.9 && after.sq < 0.2, "graph " + after.graph.toFixed(2) + " with the picture " + Math.round((1 - after.sq) * 100) + "% rounded");
+  /* across a change of border style on the oval (solid to bars), and from the oval to the blob, the curve must not dip */
+  const stay = [];
+  for(const at of [first + LEN, first + 3 * LEN]){ await settle(at - 0.5); stay.push(Math.min(...(await follow(2200)).map(r => r[2]))); }
+  check("the curve does not dip when the oval changes style or turns into the blob", stay.every(v => v > 0.97), "lowest it got: " + stay.map(v => v.toFixed(2)).join(" and "));
 
   /* the graph fading in: first slot of the rectangle scene, LED bars */
   const upAt = style => plan.rows.findIndex(r => r.i === 0 && r.g && r.st === style) * 0.25;     // when that graph first comes up, from the schedule
