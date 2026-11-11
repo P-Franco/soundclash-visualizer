@@ -683,6 +683,7 @@ async function frameTests(page){
   check("pulse: the border lights up on the kick", lit > 60, "red channel peaked at " + lit);
 
   /* shapes: border widths are 8% and 10% here */
+  await tick("hudOn", false);                                  // the bare shape first, without the graph
   await set("frameColor", "rainbow"); await set("frameStyle", "solid"); await set("frameShape", "oval"); await wait(250);
   const oval = await page.evaluate(() => {
     const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, bx = Math.round(W * 0.08), by = Math.round(H * 0.10);
@@ -690,6 +691,23 @@ async function frameTests(page){
     return {corner: px(2, 2), insideRect: px(bx + 8, by + 8)[3], mid: px(W / 2, H / 2)[3], top: px(W / 2, by + 40)[3]};       // 40 px in: past the soft dark rim just inside the edge
   });
   check("oval: pure black outside an oval hole", oval.corner.join(",") === "0,0,0,255" && oval.insideRect === 255 && oval.mid === 0 && oval.top === 0, "corner rgba " + oval.corner.join(","));
+
+  /* the graph on an oval: nothing rectangular on the graph canvas, a curved graph on the border canvas instead */
+  const inside = () => page.evaluate(() => { const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, by = Math.round(H * 0.10);
+    const d = g.getImageData(Math.round(W / 2 - W * 0.05), H - by - Math.round(H * 0.06), Math.round(W * 0.10), Math.round(H * 0.04)).data; let n = 0;
+    for(let i = 3; i < d.length; i += 4) if(d[i] > 40) n++; return n; });
+  const names = () => page.evaluate(() => Array.from(document.getElementById("graph").options).map(o => o.textContent).join(" | "));
+  const bare = await inside();
+  await tick("hudOn", true); await set("graph", "bars"); await wait(300);
+  h = await hudLook();
+  const leds = await inside();
+  check("oval: the rectangular graph is gone and LED bars stand round the inside of the edge", !h.graph && leds > bare + 50, leds + " graph pixels just inside the bottom edge, " + bare + " without the graph");
+  check("oval: the graph list names the curved versions", /round the inside/.test(await names()), await names());
+  await set("graph", "curve"); await wait(400);
+  h = await hudLook();
+  check("oval: the spectrum curve runs round the inside of the edge", !h.graph && (await inside()) > bare + 50);
+  await page.screenshot({path: path.join(outDir, "verify-ring-curve.png")});
+  await set("graph", "bars");
 
   await set("frameStyle", "bars"); await wait(200);
   const ring = await page.evaluate(() => new Promise(res => { const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, by = Math.round(H * 0.10); let n = 0, best = 0;
@@ -725,7 +743,9 @@ async function frameTests(page){
   const plain = await look();
   await tick("glow", true); await wait(200);
   check("glow can be switched off and on without breaking the border", plain.corner[3] === 255 && (await look()).corner[3] === 255 && await page.evaluate(() => localStorage.getItem("scv_glow")) === "1");
-  await set("frameShape", "rect"); await set("frameStyle", "bars");
+  await set("frameShape", "rect"); await set("frameStyle", "bars"); await wait(200);
+  h = await hudLook();
+  check("rectangle: the rectangular graph is back", h.graph && /light up on hits/.test(await names()));
 
   /* video zoom: the box that holds both videos is scaled; the kick punch can add up to 5% on top */
   const scale = () => page.evaluate(() => { const m = /scale\(([\d.]+)\)/.exec(document.getElementById("vids").style.transform); return m ? +m[1] : 1; });

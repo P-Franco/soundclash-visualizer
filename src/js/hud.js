@@ -10,8 +10,10 @@ import { clips, clipIdx, cutInfo } from "./clips.js";
 const hctx = hud.getContext("2d");
 
 /* ---------- spectrum readout ---------- */
-const N = 200, F0 = 40, F1 = 14000, DBMIN = -96, DBMAX = -22;
-const cur = new Float32Array(N), raw = new Float32Array(N), hist = [];
+export const N = 200;
+const F0 = 40, F1 = 14000, DBMIN = -96, DBMAX = -22;
+export const cur = new Float32Array(N), hist = [];       // the smoothed spectrum and its last few copies; frame.js draws them too
+const raw = new Float32Array(N);
 export const NB = 56, barV = new Float32Array(NB), barCap = new Float32Array(NB);   // bar levels and falling peaks, also drawn by the border (frame.js)
 const barPrev = new Float32Array(NB), barFlash = new Float32Array(NB),
       barLit = new Int16Array(NB), barG = new Float32Array(NB);
@@ -24,7 +26,7 @@ export function barGlow(b){
   return Math.min(1, Math.max(z, barFlash[b] * 0.7));
 }
 let fd, td;
-const labels = [{x:0,y:0,f:0,a:0,txt:"",hz:""},{x:0,y:0,f:0,a:0,txt:"",hz:""}];
+export const labels = [{x:0,y:0,f:0,a:0,txt:"",hz:""},{x:0,y:0,f:0,a:0,txt:"",hz:""}];
 const NOTE_EN = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const NOTE_JP = ["ハ","ハ#","ニ","ニ#","ホ","ヘ","ヘ#","ト","ト#","イ","イ#","ロ"];
 function noteName(f){
@@ -87,7 +89,9 @@ export function drawHud(now){
   const jp = S.jp;
   hctx.setTransform(1,0,0,1,0,0);
   hctx.clearRect(0,0,W0,H0);
-  if(!S.hudOn && !S.statusOn) return;                      // the graph and the status text are separate switches
+  /* On an oval or blob picture the graph is drawn by frame.js, curved to fit. Nothing rectangular goes on those. */
+  const curved = S.frameStyle !== "off" && S.frameShape !== "rect", graphOn = S.hudOn && !curved;
+  if(!graphOn && !S.statusOn) return;                      // the graph and the status text are separate switches
   /* with a border on, everything here is laid out inside it */
   let ox = 0, oy = 0;
   if(S.frameStyle !== "off"){
@@ -104,7 +108,7 @@ export function drawHud(now){
   const fx = f => x0 + (x1-x0) * Math.log(f/F0)/Math.log(F1/F0);
 
   hctx.shadowColor = "rgba(0,0,0,.85)"; hctx.shadowBlur = 0;
-  if(S.hudOn){                                             // a soft dark fade behind the graph
+  if(graphOn){                                             // a soft dark fade behind the graph
     const fade = hctx.createLinearGradient(0, yT - 40*s, 0, H); fade.addColorStop(0, "rgba(12,3,4,0)"); fade.addColorStop(1, "rgba(12,3,4,.7)");
     hctx.fillStyle = fade; hctx.fillRect(0, yT - 40*s, W, H - yT + 40*s);
   }
@@ -122,7 +126,7 @@ export function drawHud(now){
   ];
   const lx = 26*s, vx = lx + (jp ? 112 : 92)*s; let ly = 24*s;
   hctx.shadowBlur = 0;
-  hctx.fillStyle = "rgba(12,3,4,.62)"; hctx.fillRect(12*s, 12*s, Math.min(W - 24*s, 600*s), 172*s);
+  if(!curved){ hctx.fillStyle = "rgba(12,3,4,.62)"; hctx.fillRect(12*s, 12*s, Math.min(W - 24*s, 600*s), 172*s); }   // dark panel behind the text
   hctx.shadowBlur = 6*s;
   for(const [k,v] of rows){ hctx.fillStyle = "#d9667e"; hctx.fillText(k, lx, ly); hctx.fillStyle = "#f3e9ea"; hctx.fillText(v, vx, ly); ly += 25*s; }
   /* level meter */
@@ -144,7 +148,7 @@ export function drawHud(now){
   });
   hctx.textAlign = "left";
   }
-  if(!S.hudOn){ hctx.shadowBlur = 0; return; }
+  if(!graphOn){ hctx.shadowBlur = 0; return; }
 
   /* frequency grid */
   hctx.shadowBlur = 0;

@@ -9,6 +9,14 @@ import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
 import { FRAME_STYLES } from "./frame.js";
 
+/* The two graph styles are drawn as rectangles on a rectangular picture and curved round the inside of the
+     edge on an oval or blob. The list says which you will get. */
+function nameGraphStyles(){
+  const curved = S.frameStyle !== "off" && S.frameShape !== "rect", o = $("graph").options;
+  o[0].textContent = curved ? "LED bars round the inside of the edge" : "LED bars, light up on hits";
+  o[1].textContent = curved ? "Spectrum curve round the inside of the edge" : "Spectrum curve with note labels";
+}
+
 export function initSettings(){
   /* effects stay gentle by default: no video punch for people who ask for reduced motion (a saved value still wins) */
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("punch").value = 0;
@@ -35,8 +43,8 @@ export function initSettings(){
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
   bindRange("punch", "punch", pct, v => { S.punch = v; });
   bindSelect("graph", "graph", v => { S.graph = v; });
-  bindSelect("frameStyle", "frameStyle", v => { S.frameStyle = v; });
-  bindSelect("frameShape", "frameShape", v => { S.frameShape = v; });
+  bindSelect("frameStyle", "frameStyle", v => { S.frameStyle = v; nameGraphStyles(); });
+  bindSelect("frameShape", "frameShape", v => { S.frameShape = v; nameGraphStyles(); });
   bindSelect("frameColor", "frameColor", v => { S.frameColor = v; });
   bindRange("frameX", "frameX", v => v + "%", v => { S.frameX = v; });
   bindRange("frameY", "frameY", v => v + "%", v => { S.frameY = v; });
