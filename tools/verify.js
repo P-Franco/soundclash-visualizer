@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,hotkeys]
+                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,presets,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -115,7 +115,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame")}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function"}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -148,6 +148,7 @@ async function main(){
   if(info.features.regions && run("regions")) await regionTests(page);
   if(info.features.folder && run("folder")) await folderTests(page);
   if(info.features.frame && run("frame")) await frameTests(page);
+  if(info.features.presets && run("presets")) await presetTests(page);
   if(run("hotkeys")) await hotkeys(page);
 
   section("storage");
@@ -669,6 +670,48 @@ async function frameTests(page){
   for(let i = 0; i < 4; i++){ await page.keyboard.press("b"); await wait(80); seen.push(await page.evaluate(() => document.getElementById("frameStyle").value)); }
   check("B steps through the border styles", seen.join(" ") === "solid bars pulse off", seen.join(" "));
   check("the border style is saved", await page.evaluate(() => localStorage.getItem("scv_frameStyle")) === "off");
+}
+
+/* ---------- preset packs and favourites ---------- */
+async function presetTests(page){
+  section("presets and favourites");
+  const ps = () => page.evaluate(() => window.__scv.presetState());
+  const set = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id); if(el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
+  const wait = ms => page.waitForTimeout(ms);
+  const pickPreset = i => set("preset", String(i));
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.evaluate(() => localStorage.removeItem("scv_stars"));
+
+  let s = await ps();
+  check("presets from all four packs are in the list", s.count >= 350, s.count + " presets, the first pack alone has 100");
+
+  /* star three presets: by button, by button, by hotkey */
+  await pickPreset(5); await page.evaluate(() => document.getElementById("star").click());
+  await pickPreset(120); await page.evaluate(() => document.getElementById("star").click());
+  await pickPreset(300); await page.keyboard.press("k"); await wait(100);
+  s = await ps();
+  const ui = await page.evaluate(() => ({btn: document.getElementById("star").textContent, opt: document.getElementById("preset").options[300].textContent, saved: JSON.parse(localStorage.getItem("scv_stars") || "[]").length}));
+  check("the Star button and K star the current preset", s.stars.length === 3 && ui.btn.startsWith("★") && ui.opt.startsWith("★ "), ui.btn + " | " + ui.opt.slice(0, 30));
+  check("stars are saved", ui.saved === 3);
+
+  await set("starList", true);
+  const shown = await page.evaluate(() => Array.from(document.getElementById("preset").options).filter(o => !o.hidden).length);
+  check("\"List starred presets only\" hides the rest", shown === 3, shown + " shown");
+  await set("starList", false);
+
+  /* auto change limited to starred presets: shortest interval is 5 s, so watch two changes */
+  await set("mdOn", true); await set("cycle", 5); await set("starOnly", true);
+  await pickPreset(10);                                   // start on one that is not starred
+  const seen = await page.evaluate(() => new Promise(res => { const names = []; let last = window.__scv.presetState().name; const t0 = performance.now();
+    const t = setInterval(() => { const n = window.__scv.presetState().name; if(n !== last){ names.push(n); last = n; } if(performance.now() - t0 > 11500){ clearInterval(t); res(names); } }, 200); }));
+  check("with \"starred only\" on, auto change lands only on starred presets", seen.length >= 2 && seen.every(n => s.stars.includes(n)), seen.length + " changes");
+  await set("starOnly", false); await set("cycle", 30);
+  if(!args.md) await set("mdOn", false);
+
+  await pickPreset(300); await page.keyboard.press("k"); await wait(100);
+  s = await ps();
+  check("K again removes the star", s.stars.length === 2);
+  await page.evaluate(() => localStorage.removeItem("scv_stars"));
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

@@ -15,7 +15,9 @@ The same notice is written into the top of the built file.
 
 ## Butterchurn presets
 
-- Package: `butterchurn-presets` 2.4.7 (`lib/butterchurnPresets.min.js`)
+- Package: `butterchurn-presets` 2.4.7. Four files from its `lib/` folder are inlined:
+  `butterchurnPresets.min.js`, `butterchurnPresetsExtra.min.js`,
+  `butterchurnPresetsExtra2.min.js` and `butterchurnPresetsMD1.min.js`
 - What it is: MilkDrop presets converted for Butterchurn. The presets themselves were written
   by many people in the MilkDrop community over the years. Each preset name carries its
   authors' names, and the app shows those names unchanged.

@@ -5,7 +5,7 @@ import { S } from "./state.js";
 import { ctx, initAudio } from "./audio.js";
 import { DET, detMode, detVia, detError } from "./detect.js";
 import { clips, addClips, initClips, tickClips, clipState } from "./clips.js";
-import { initPresets, markSwitch, tickPresets } from "./presets.js";
+import { initPresets, markSwitch, tickPresets, presetState } from "./presets.js";
 import { analyse, drawHud } from "./hud.js";
 import { initSettings, initPanel, showPanel } from "./ui.js";
 import { sizeCanvases } from "./stage.js";
@@ -50,4 +50,4 @@ initPanel();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {clips, addClips, clipState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};
+window.__scv = {clips, addClips, clipState, presetState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

@@ -17,6 +17,10 @@ const minify = process.argv.includes("--minify");
 const VENDOR = [
   "node_modules/butterchurn/lib/butterchurn.min.js",
   "node_modules/butterchurn-presets/lib/butterchurnPresets.min.js",
+  /* the extra packs that ship inside the same npm package (the Minimal and NonMinimal files are subsets of the first) */
+  "node_modules/butterchurn-presets/lib/butterchurnPresetsExtra.min.js",
+  "node_modules/butterchurn-presets/lib/butterchurnPresetsExtra2.min.js",
+  "node_modules/butterchurn-presets/lib/butterchurnPresetsMD1.min.js",
 ];
 
 const read = rel => fs.readFileSync(path.join(root, rel), "utf8");

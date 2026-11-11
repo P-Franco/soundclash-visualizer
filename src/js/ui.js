@@ -4,7 +4,7 @@ import { S } from "./state.js";
 import { bindRange, bindSelect, bindCheck, pct } from "./store.js";
 import { gain } from "./audio.js";
 import { replan, nextClip, setRate, setRegionPoint } from "./clips.js";
-import { nextPreset } from "./presets.js";
+import { nextPreset, toggleStar, syncStars } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
 import { FRAME_STYLES } from "./frame.js";
@@ -37,6 +37,8 @@ export function initSettings(){
   bindRange("frameY", "frameY", v => v + "%", v => { S.frameY = v; });
   bindCheck("mdOn", "md", v => { S.mdOn = v; stageMd.style.display = v ? "block" : "none"; });
   $("lock").addEventListener("change", e => { S.locked = e.target.checked; });
+  bindCheck("starOnly", "starOnly", v => { S.starOnly = v; });
+  bindCheck("starList", "starList", v => { S.starList = v; syncStars(); });
 }
 
 /* ---------- controls drawer / keys ---------- */
@@ -68,6 +70,7 @@ export function initPanel(){
     else if(k === "m"){ $("mdOn").checked = !S.mdOn; $("mdOn").dispatchEvent(new Event("change")); }
     else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
     else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
+    else if(k === "k") toggleStar();
     else if(k === "i") setRegionPoint("in");
     else if(k === "o") setRegionPoint("out");
     else if(k === " "){ e.preventDefault(); $("lock").checked = S.locked = !S.locked; }

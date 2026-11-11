@@ -6,6 +6,8 @@ export const S = {
   jp: true,           // Japanese labels and note names
   locked: false,      // MilkDrop preset lock (stops auto change)
   cycleSec: 30,       // MilkDrop auto change interval
+  starOnly: false,    // auto change picks starred presets only
+  starList: false,    // the preset list shows starred presets only
   loopMode: "cycle",  // what happens when a clip ends: cycle | one | shuffle
   xfade: 1,           // crossfade between clips in seconds, 0 = hard cut
   xfadeLoop: true,    // also crossfade when a single clip loops back to its start

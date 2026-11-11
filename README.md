@@ -49,6 +49,7 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `C` | Beat cuts on/off |
 | `I` / `O` | Set the loop in / out point of the playing clip |
 | `B` | Step through the border styles |
+| `K` | Star or unstar the current MilkDrop preset |
 
 ## Wiring a DJ mixer into line-in
 
@@ -102,6 +103,9 @@ cannot feed back. Only the test track plays out loud.
   time, level and KICK / SNARE / HAT pads. Labels in English or Japanese.
 - **MilkDrop layer**: [Butterchurn](https://github.com/jberg/butterchurn) presets blended
   over the video, with a preset picker, auto change, strength and blend mode.
+- **Presets and favourites**: 395 presets, from all four packs that ship in the
+  `butterchurn-presets` package. Star the ones you like (`K` or the Star button), then
+  optionally limit auto change to starred presets, or show only starred ones in the list.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
 - **Open folder**: point at a folder and it pulls in every video inside, subfolders too,
@@ -211,6 +215,7 @@ clicks Start, and checks:
 - beat cuts: cut rate, the minimum gap, random-point mode, the single-clip fallback,
 - loop regions: setting, looping inside the region, coming back after a reload,
 - the border: each style, by reading pixels back from its canvas,
+- presets: the merged pack count, starring, and starred-only auto change,
 - open folder: reading a folder tree (with a stand-in folder, since the native dialog
   cannot be driven from a test), and with `--https` that it is remembered and reopened,
 - every hotkey,
