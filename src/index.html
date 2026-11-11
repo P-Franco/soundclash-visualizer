@@ -50,9 +50,6 @@
     <div class="keys" id="folderV"></div>
     <div class="row"><button id="reopenFolder" hidden></button><button id="forgetFolder" hidden>Forget folder</button></div>
     <ul id="clips"></ul>
-    <label><span>Position in clip <b id="posV"></b></span><input type="range" id="pos" min="0" max="1" step="0.001" value="0"></label>
-    <div class="row"><button id="setIn">Set in</button><button id="setOut">Set out</button><button id="clearRegion">Clear</button></div>
-    <div class="keys" id="regionV"></div>
     <label><span>When a clip ends</span><select id="loopMode">
       <option value="shuffle" selected>Play every clip once in random order, then reshuffle</option>
       <option value="cycle">Play the clips in list order, then start over</option>
@@ -63,17 +60,6 @@
     <label><span>Darken video <b id="dimV"></b></span><input type="range" id="dimR" min="0" max="0.9" step="0.01" value="0.35"></label>
     <label><span>Red wash on video <b id="tintV"></b></span><input type="range" id="tintR" min="0" max="1" step="0.01" value="0.55"></label>
     <label><span>Video punch on kick <b id="punchV"></b></span><input type="range" id="punch" min="0" max="1" step="0.01" value="0.4"></label>
-  </section>
-
-  <section>
-    <h2>BEAT CUTS</h2>
-    <label class="check"><input type="checkbox" id="cutOn"> Cut the video on the kick</label>
-    <label><span>On a cut</span><select id="cutMode">
-      <option value="clip">Jump to another clip</option>
-      <option value="point">Jump to a random point in this clip</option></select></label>
-    <label><span>Cut every <b id="cutEveryV"></b></span><input type="range" id="cutEvery" min="1" max="64" step="1" value="16"></label>
-    <label><span>At least this long between cuts <b id="cutGapV"></b></span><input type="range" id="cutGap" min="0.5" max="30" step="0.5" value="4"></label>
-    <div class="keys">Counts hits in the KICK zone. Beat cuts are always hard cuts, whatever the crossfade is set to. With one clip in the list, a cut jumps to a random point in it.</div>
   </section>
 
   <section>
@@ -141,12 +127,12 @@
     <label><span>Hit sensitivity <b id="sensV"></b></span><input type="range" id="sens" min="0" max="1" step="0.01" value="0.6"></label>
     <div id="zones"></div>
     <div class="row"><button id="zoneAdd">Add zone</button><button id="zoneReset">Reset zones</button></div>
-    <div class="keys">A zone fires when the sound inside its range jumps. Zones are frequency ranges, not instruments. KICK also drives the video punch and beat cuts.</div>
+    <div class="keys">A zone fires when the sound inside its range jumps. Zones are frequency ranges, not instruments. KICK also drives the video punch.</div>
   </section>
 
   <section>
     <div class="row"><button id="fs">Fullscreen</button><button id="hide">Hide controls</button></div>
-    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>C</kbd> beat cuts on/off &nbsp;<kbd>I</kbd> <kbd>O</kbd> loop in/out &nbsp;<kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset &nbsp;<kbd>T</kbd> status text on/off &nbsp;<kbd>J</kbd> Japanese text on/off</div>
+    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset &nbsp;<kbd>T</kbd> status text on/off &nbsp;<kbd>J</kbd> Japanese text on/off</div>
     <div class="keys">Visual engine: Butterchurn (MilkDrop for WebGL, MIT license) with its community preset packs.</div>
   </section>
 </aside>

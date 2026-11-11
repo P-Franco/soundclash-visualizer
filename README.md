@@ -48,8 +48,6 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `J` | Japanese text over the picture on/off |
 | `G` | Switch graph style: LED bars or spectrum curve |
 | `M` | MilkDrop layer on/off |
-| `C` | Beat cuts on/off |
-| `I` / `O` | Set the loop in / out point of the playing clip |
 | `B` | Step through the border styles |
 | `K` | Star or unstar the current MilkDrop preset |
 
@@ -111,8 +109,8 @@ cannot feed back. Only the test track plays out loud.
 - **Presets and favourites**: 395 presets, from all four packs that ship in the
   `butterchurn-presets` package. Star the ones you like (`K` or the Star button), then
   optionally limit auto change to starred presets, or show only starred ones in the list.
-- The drawer only shows controls that do something in the current setup. Turn beat cuts
-  on and their settings appear; pick the oval or blob and the sparks option appears. Hidden controls keep their values.
+- The drawer only shows controls that do something in the current setup. Turn the border
+  on and its settings appear; pick the oval or blob and the sparks option appears. Hidden controls keep their values.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
 - **Open folder**: point at a folder and it pulls in every video inside, subfolders too,
@@ -154,15 +152,6 @@ cannot feed back. Only the test track plays out loud.
   outline. The blob grows into the border, so give the border some width.
 - **Video zoom**: enlarges the picture up to 200% so a clip's own border falls off the
   edge of the screen. Use it alone, or with the border to cover whatever is left.
-- **Loop region**: mark an in and an out point on a clip so only the good section plays.
-  Drag the position slider to find the spot, then Set in / Set out (or `I` / `O`). Looping,
-  crossfades and beat cuts all stay inside the region. Regions are remembered per file
-  (by name and size), so they come back the next time you add the same clip.
-- **Beat cuts**: optionally cut the video on the kick, every N kicks, either to another
-  clip or to a random point in the current one, with a minimum time between cuts. Off by
-  default. While it is on, the CLIP line in the status block counts kicks toward the next
-  cut. Cuts are always hard cuts and use the preloaded second video, so they land on the
-  beat instead of after a file load.
 - **Hit zones**: edit the frequency range of KICK, SNARE and HAT, and add up to five zones
   of your own. Each zone gets a pad in the status block and lights its part of the graph.
 
@@ -175,7 +164,7 @@ peak. A loud bass stab will light KICK. A vocal consonant can light SNARE.
 
 Change the ranges under **HIT ZONES** if your music sits elsewhere (a higher kick zone for
 drum and bass, say), or add a zone for something specific like a clap around 900 to 1600 Hz.
-KICK is always the zone that drives the video punch and beat cuts.
+KICK is always the zone that drives the video punch.
 
 Detection runs in an AudioWorklet, on the audio thread, about 94 times a second. A slow or
 stalled frame cannot make it miss a hit: hits wait in a queue and are counted when the
@@ -190,7 +179,8 @@ when the page was opened from `file://`. The worklet source is therefore loaded 
 There are two stacked video elements. One is on screen. The other holds the clip that is
 likely to play next, already opened and paused on its first frame, so a switch does not
 wait for a file to load. A crossfade plays both for a moment and blends them. The fade
-starts early enough to finish as the outgoing clip runs out.
+starts early enough to finish as the outgoing clip runs out. Nothing changes in the middle
+of a clip: every clip plays from its first frame to its last.
 
 ## Project layout
 
@@ -205,7 +195,7 @@ src/
     detect-core.js      the detection math (FFT, flux, thresholds), no browser APIs
     detect.worklet.js   AudioWorklet shell around detect-core.js
     zone-editor.js      HIT ZONES controls
-    clips.js            video playlist on two stacked videos, crossfade, cuts, loop regions
+    clips.js            video playlist on two stacked videos, random order, crossfade
     folder.js           Open folder, and remembering it between launches
     frame.js            the border drawn over the edges of the picture
     words.js            Japanese text that appears over the picture on kicks
@@ -250,8 +240,6 @@ clicks Start, and checks:
 - the hit zone editor (edit, add, rename, remove, reset),
 - clip playback, using short clips the page records for itself: crossfades, hard cuts,
   each end-of-clip mode, a file that cannot be decoded, removing clips,
-- beat cuts: cut rate, the minimum gap, random-point mode, the single-clip fallback,
-- loop regions: setting, looping inside the region, coming back after a reload,
 - the border: each style, by reading pixels back from its canvas,
 - presets: the merged pack count, starring, and starred-only auto change,
 - open folder: reading a folder tree (with a stand-in folder, since the native dialog

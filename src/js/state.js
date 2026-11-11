@@ -18,10 +18,6 @@ export const S = {
   loopMode: "shuffle", // what happens when a clip ends: shuffle (random order, in rounds) | cycle | one
   xfade: 1,           // crossfade between clips in seconds, 0 = hard cut
   xfadeLoop: true,    // also crossfade when a single clip loops back to its start
-  cutOn: false,       // beat-synced cuts
-  cutMode: "clip",    // on a cut: jump to another clip | to a random point in this one
-  cutEvery: 16,       // kicks between cuts
-  cutGap: 4,          // minimum seconds between cuts
   frameStyle: "off",  // border: off | solid | bars | pulse
   frameShape: "rect", // shape of the picture inside the border: rect | oval | blob
   frameX: 6,          // border width at the left and right, percent of the screen width

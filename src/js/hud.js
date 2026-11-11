@@ -5,7 +5,7 @@ import { S } from "./state.js";
 import { ctx, analyser } from "./audio.js";
 import { DET } from "./detect.js";
 import { presetNames, presetIdx, isStarred } from "./presets.js";
-import { clips, clipIdx, cutInfo } from "./clips.js";
+import { clips, clipIdx } from "./clips.js";
 
 const hctx = hud.getContext("2d");
 
@@ -116,12 +116,10 @@ export function drawHud(now){
   if(S.statusOn){
   /* status text: input, preset, clip, time, level, hit pads */
   hctx.font = (17*s) + "px " + FONT; hctx.textBaseline = "top"; hctx.textAlign = "left";
-  const cut = cutInfo();                                   // beat cuts armed: show the count toward the next cut
-  const cutTxt = cut ? "  " + (jp ? "カット " : "CUT ") + String(cut.kicks).padStart(2,"0") + "/" + String(cut.every).padStart(2,"0") : "";
   const rows = [
     [jp ? "入力" : "INPUT", clipText(S.inputLabel || "-", 46)],
     [jp ? "プリセット" : "PRESET", S.mdOn ? clipText((isStarred() ? "★ " : "") + (presetNames[presetIdx] || "-"), 46) + (S.locked ? (jp ? "  [固定]" : "  [LOCKED]") : "") : (jp ? "オフ" : "off")],
-    [jp ? "映像" : "CLIP", clipIdx >= 0 ? String(clipIdx+1).padStart(2,"0") + "/" + String(clips.length).padStart(2,"0") + "  " + clipText(clips[clipIdx].name, cut ? 26 : 36) + cutTxt : (jp ? "なし" : "none")],
+    [jp ? "映像" : "CLIP", clipIdx >= 0 ? String(clipIdx+1).padStart(2,"0") + "/" + String(clips.length).padStart(2,"0") + "  " + clipText(clips[clipIdx].name, 36) : (jp ? "なし" : "none")],
     [jp ? "時間" : "TIME", fmtTime(now - S.t0)],
   ];
   const lx = 26*s, vx = lx + (jp ? 112 : 92)*s; let ly = 24*s;

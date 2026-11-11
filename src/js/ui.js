@@ -3,7 +3,7 @@ import { $, stageMd, panel } from "./dom.js";
 import { S } from "./state.js";
 import { bindRange, bindSelect, bindCheck, pct, onSettingChange } from "./store.js";
 import { gain } from "./audio.js";
-import { replan, newRound, nextClip, setRate, setRegionPoint } from "./clips.js";
+import { replan, newRound, nextClip, setRate } from "./clips.js";
 import { nextPreset, toggleStar, syncStars } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
@@ -17,7 +17,6 @@ function showIf(on, ...ids){
 function tidyControls(){
   const border = S.frameStyle !== "off", round = border && S.frameShape !== "rect";
   showIf(S.xfade > 0, "xfadeLoop");                                   // nothing to crossfade when crossfade is off
-  showIf(S.cutOn, "cutMode", "cutEvery", "cutGap");
   showIf(S.wordsOn, "wordsKind", "wordsAmount", "wordsSize");
   showIf(border, "frameShape", "frameX", "frameY");
   showIf(round, "fx");                                                // sparks and ripples come from the oval or blob
@@ -40,10 +39,6 @@ export function initSettings(){
   bindSelect("loopMode", "loop", v => { S.loopMode = v; newRound(); replan(); });
   bindRange("xfade", "xfade", v => v > 0 ? v.toFixed(1) + " s" : "off", v => { S.xfade = v; replan(); });
   bindCheck("xfadeLoop", "xfadeLoop", v => { S.xfadeLoop = v; replan(); });
-  bindCheck("cutOn", "cutOn", v => { S.cutOn = v; replan(); });
-  bindSelect("cutMode", "cutMode", v => { S.cutMode = v; replan(); });
-  bindRange("cutEvery", "cutEvery", v => v + (v === 1 ? " kick" : " kicks"), v => { S.cutEvery = v; });
-  bindRange("cutGap", "cutGap", v => v.toFixed(1) + " s", v => { S.cutGap = v; });
   bindCheck("hudOn", "hud", v => { S.hudOn = v; });
   bindCheck("statusOn", "status", v => { S.statusOn = v; });
   bindCheck("glow", "glow", v => { S.glow = v; });
@@ -97,13 +92,10 @@ export function initPanel(){
     else if(k === "s"){ $("hudOn").checked = !S.hudOn; $("hudOn").dispatchEvent(new Event("change")); }
     else if(k === "g"){ const g = $("graph"); g.value = S.graph === "bars" ? "curve" : "bars"; g.dispatchEvent(new Event("change")); }
     else if(k === "m"){ $("mdOn").checked = !S.mdOn; $("mdOn").dispatchEvent(new Event("change")); }
-    else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
     else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
     else if(k === "k") toggleStar();
     else if(k === "j"){ $("wordsOn").checked = !S.wordsOn; $("wordsOn").dispatchEvent(new Event("change")); }
     else if(k === "t"){ $("statusOn").checked = !S.statusOn; $("statusOn").dispatchEvent(new Event("change")); }
-    else if(k === "i") setRegionPoint("in");
-    else if(k === "o") setRegionPoint("out");
     else if(k === " "){ e.preventDefault(); $("lock").checked = S.locked = !S.locked; }
   });
 }

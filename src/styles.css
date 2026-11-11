@@ -62,7 +62,6 @@ input[type=file].hide{position:absolute;opacity:0;width:1px;height:1px;pointer-e
 #clips li.on{border-color:var(--rose);color:var(--pale)}
 #clips li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #clips li button{padding:1px 7px;font-size:12px}
-#clips li .tag{font-style:normal;font-size:10px;color:var(--rose);border:1px solid var(--line);padding:0 4px;letter-spacing:.08em}
 input[type=range]:disabled{opacity:.45}
 #clips:empty::after{content:"No clips yet. Add files or drop them anywhere on the window.";color:var(--mute);line-height:1.5}
 /* hit zone editor: name, from Hz, to Hz, remove */
