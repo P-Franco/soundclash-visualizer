@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,audio,clips,shuffle,folder,frame,presets,controls,words,show,hotkeys]
+                               [--only=hits,stall,zones,audio,clips,shuffle,folder,frame,presets,controls,words,show,pin,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -115,7 +115,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function", show: !!document.getElementById("showOn"), sys: !!document.getElementById("sysBtn")}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function", show: !!document.getElementById("showOn"), sys: !!document.getElementById("sysBtn"), pin: !!document.getElementById("pinOn")}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -152,6 +152,7 @@ async function main(){
   if(info.features.frame && run("controls")) await controlTests(page);
   if(info.features.words && run("words")) await wordTests(page);
   if(info.features.show && run("show")) await showTests(page);
+  if(info.features.pin && run("pin")) await pinTests(page);
   if(run("hotkeys")) await hotkeys(page);
 
   section("storage");
@@ -921,6 +922,83 @@ async function showTests(page){
   check("X turns the show on and off", onNow === true && !(await page.evaluate(() => document.getElementById("showOn").checked)));
 
   await put("frameStyle", "off"); await put("zoom", 1); await put("showLen", 30); await put("wordsOn", true);
+}
+
+/* ---------- corner pin ---------- */
+async function pinTests(page){
+  section("corner pin");
+  await ensureClips(page);
+  const wait = ms => page.waitForTimeout(ms);
+  const click = id => page.evaluate(id => document.getElementById(id).click(), id);
+  /* where the stage's four corners actually land on screen, worked out from the transform the browser applied */
+  const corners = () => page.evaluate(() => { const st = document.getElementById("stage"), t = getComputedStyle(st).transform, W = innerWidth, H = innerHeight;
+    if(t === "none") return null;
+    const m = new DOMMatrix(t);
+    return [[0, 0], [W, 0], [W, H], [0, H]].map(([x, y]) => { const p = m.transformPoint(new DOMPoint(x, y)); return [p.x / p.w, p.y / p.w]; }); });
+  const near = (a, b, tol = 0.6) => Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol;
+  const handle = i => page.locator(".pinH").nth(i).boundingBox();
+
+  await page.evaluate(() => { localStorage.removeItem("scv_pin"); });
+  check("off by default: the picture is not bent", (await corners()) === null && !(await page.evaluate(() => document.getElementById("pinOn").checked)));
+
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.keyboard.press("p"); await wait(200);
+  let s = await page.evaluate(() => ({ui: !document.getElementById("pinUI").hidden, grid: getComputedStyle(document.getElementById("pin")).display, on: document.getElementById("pinOn").checked, edit: window.__scv.pinState().editing, panel: getComputedStyle(document.getElementById("panel")).transform}));
+  check("P opens the corner grid and turns the pin on", s.ui && s.grid === "block" && s.on && s.edit);
+
+  /* drag the top left corner in and down */
+  let b = await handle(0);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + 60, b.y + b.height / 2 + 40, {steps: 6});
+  await page.mouse.move(b.x + b.width / 2 + 120, b.y + b.height / 2 + 70, {steps: 6}); await page.mouse.up();
+  await wait(150);
+  let c = await corners();
+  check("dragging a corner moves that corner of the picture and leaves the other three alone", c && near(c[0], [120, 70]) && near(c[1], [vw, 0]) && near(c[2], [vw, vh]) && near(c[3], [0, vh]), c ? "top left now at " + c[0].map(v => v.toFixed(1)).join(", ") : "no transform");
+
+  /* keys: corner 2 (top right) five pixels left, then ten down with Shift */
+  await page.keyboard.press("2");
+  for(let i = 0; i < 5; i++) await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Shift+ArrowDown"); await wait(120);
+  c = await corners();
+  check("1 to 4 pick a corner and the arrow keys nudge it, ten pixels with Shift", near(c[1], [vw - 5, 10]) && near(c[0], [120, 70]), "top right now at " + c[1].map(v => v.toFixed(1)).join(", "));
+  await page.keyboard.press("Tab");
+  check("Tab moves on to the next corner", (await page.evaluate(() => window.__scv.pinState().sel)) === 2);
+
+  /* a move that would fold the picture over itself is refused */
+  b = await handle(2);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
+  await page.mouse.move(60, 40, {steps: 12}); await page.mouse.up(); await wait(150);
+  c = await corners();
+  const p = await page.evaluate(() => window.__scv.pinState().pts);
+  const convex = [0, 1, 2, 3].every(i => { const a = c[i], d = c[(i + 1) % 4], e = c[(i + 2) % 4]; return (d[0] - a[0]) * (e[1] - d[1]) - (d[1] - a[1]) * (e[0] - d[0]) > 0; });
+  check("a corner cannot be dragged so far that the picture folds over", convex && p[2][0] > 0.3 && p[2][1] > 0.3, "bottom right stopped at " + Math.round(p[2][0] * vw) + ", " + Math.round(p[2][1] * vh));
+  await page.screenshot({path: path.join(outDir, "verify-pin.png")});
+
+  await page.keyboard.press("Enter"); await wait(150);
+  s = await page.evaluate(() => ({ui: !document.getElementById("pinUI").hidden, grid: getComputedStyle(document.getElementById("pin")).display, black: getComputedStyle(document.body).backgroundColor}));
+  check("Enter closes the grid and the picture stays bent, on pure black", !s.ui && s.grid === "none" && (await corners()) !== null && s.black === "rgb(0, 0, 0)", "page background " + s.black);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("scv_pin")));
+  check("the corners are saved", Array.isArray(saved) && saved.length === 4 && Math.abs(saved[0][0] * vw - 120) < 1);
+
+  /* still bent after the page is opened again */
+  const before = await corners();
+  await page.reload(); await wait(400);
+  const after = await corners();
+  check("the saved corners come back when the page is opened again", after && before.every((q, i) => near(q, after[i], 0.01)));
+
+  await click("pinOn"); await wait(120);
+  check("unticking the pin puts the picture straight, keeping the corners", (await corners()) === null && (await page.evaluate(() => window.__scv.pinState().pts[0][0])) > 0.05);
+  check("and hides the corner buttons", await page.evaluate(() => document.getElementById("pinEdit").closest(".row").hidden));
+  await click("pinOn"); await wait(120);
+  await click("pinReset"); await wait(120);
+  check("Reset corners puts all four back at the screen's corners", (await corners()) === null && (await page.evaluate(() => JSON.stringify(window.__scv.pinState().pts))) === "[[0,0],[1,0],[1,1],[0,1]]");
+  await click("pinOn");
+
+  /* back to a running show for whatever comes next */
+  if(!args.md) await page.evaluate(() => { const el = document.getElementById("mdOn"); el.checked = false; el.dispatchEvent(new Event("change")); });
+  await page.click("#goMic");
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("start")).display === "none", null, {timeout: 15000});
+  await ensureClips(page);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

@@ -2,6 +2,7 @@
    Settings are written by the control bindings in ui.js. Runtime values are written by the module that owns them. */
 export const S = {
   /* settings */
+  pinOn: false,       // corner pin: bend the whole picture so it lands square from a projector at an angle (see pin.js)
   showOn: false,      // show mode: the looks play one after another by themselves (see show.js)
   showLen: 30,        // show mode: seconds in one scene length
   hudOn: true,        // graph visible

@@ -15,6 +15,15 @@
   <canvas id="md"></canvas>
   <canvas id="frame"></canvas>
   <canvas id="hud"></canvas>
+  <canvas id="pin"></canvas>
+</div>
+
+<div id="pinUI" hidden>
+  <div class="pinH" title="Corner 1"></div><div class="pinH" title="Corner 2"></div><div class="pinH" title="Corner 3"></div><div class="pinH" title="Corner 4"></div>
+  <div id="pinHelp">
+    <b>Corner pin</b><br>Drag a corner, or press <kbd>1</kbd> to <kbd>4</kbd> (or <kbd>Tab</kbd>) to pick one and nudge it with the arrow keys. Hold <kbd>Shift</kbd> for bigger steps. Look at the wall, not this screen: stop when the squares are square and the circle is round.
+    <div class="row"><button id="pinReset2">Reset corners</button><button class="primary" id="pinDone">Done</button></div>
+  </div>
 </div>
 
 <div id="hint">move mouse for controls &middot; H hide &middot; F fullscreen</div>
@@ -35,6 +44,13 @@
 </div>
 
 <aside id="panel" aria-label="Controls">
+  <section>
+    <h2>PROJECTOR</h2>
+    <label class="check"><input type="checkbox" id="pinOn"> Corner pin: square the picture up from an angle</label>
+    <div class="row"><button id="pinEdit">Adjust corners</button><button id="pinReset">Reset corners</button></div>
+    <div class="keys">For a projector mounted high or off to one side. Adjust corners shows a grid: move each corner until the grid looks square on the wall. The corners are remembered, so it is done once per venue.</div>
+  </section>
+
   <section>
     <h2>SHOW MODE</h2>
     <label class="check"><input type="checkbox" id="showOn"> Run the show: play through every look</label>
@@ -143,7 +159,7 @@
 
   <section>
     <div class="row"><button id="fs">Fullscreen</button><button id="hide">Hide controls</button></div>
-    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset &nbsp;<kbd>T</kbd> status text on/off &nbsp;<kbd>J</kbd> Japanese text on/off &nbsp;<kbd>X</kbd> show mode on/off</div>
+    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset &nbsp;<kbd>T</kbd> status text on/off &nbsp;<kbd>J</kbd> Japanese text on/off &nbsp;<kbd>X</kbd> show mode on/off &nbsp;<kbd>P</kbd> projector corners</div>
     <div class="keys">Visual engine: Butterchurn (MilkDrop for WebGL, MIT license) with its community preset packs.</div>
   </section>
 </aside>

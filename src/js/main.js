@@ -15,6 +15,7 @@ import { drawFrame, frameState } from "./frame.js";
 import { drawWords, wordsState } from "./words.js";
 import { L, stepLook, snapLook } from "./look.js";
 import { SHOW, showSeek, showAt } from "./show.js";
+import { initPin, pinState } from "./pin.js";
 
 /* Called once audio is flowing (live input opened or a test track chosen). */
 function begin(){
@@ -53,7 +54,8 @@ initClips();
 initFolder();
 initZoneEditor();
 initPanel();
+initPin();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {get inputLabel(){ return S.inputLabel; }, clips, addClips, clipState, presetState, frameState, wordsState, lookState: () => ({...L}), snapLook, SHOW, showSeek, showAt, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};
+window.__scv = {get inputLabel(){ return S.inputLabel; }, pinState, clips, addClips, clipState, presetState, frameState, wordsState, lookState: () => ({...L}), snapLook, SHOW, showSeek, showAt, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

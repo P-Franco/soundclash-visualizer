@@ -60,10 +60,28 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `T` | Status text on/off (input, preset, clip name, time, level, hit pads) |
 | `J` | Japanese text over the picture on/off |
 | `X` | Show mode on/off |
+| `P` | Projector corners: open or close the corner pin grid |
 | `G` | Switch graph style: LED bars or spectrum curve |
 | `M` | MilkDrop layer on/off |
 | `B` | Step through the border styles |
 | `K` | Star or unstar the current MilkDrop preset |
+
+## Setting up the projector
+
+The beam has to clear people's heads, which usually means mounting the projector high and
+aiming it down, or off to one side. That makes the picture a trapezoid on the wall.
+
+1. Mount it, aim it, and focus it.
+2. Use the projector's own keystone or 4-corner setting if it has one and the angle is mild.
+3. For steeper angles, or a projector without that setting, use the app's corner pin: tick
+   it under **PROJECTOR**, press `P`, and move the corners until the grid is square on the
+   wall. Look at the wall while you do it, not at the laptop.
+
+Limits that no software can get round: the bent picture uses fewer of the projector's
+pixels, so it is a little less sharp, and at a steep angle one side goes slightly soft
+because the lens focuses at one distance. Staying under about 30 to 40 degrees off-axis
+keeps both small. Corner pin also cannot help a projector mounted on the same wall it
+projects onto; only an ultra short throw projector can sit that close.
 
 ## Wiring a DJ mixer into line-in
 
@@ -109,6 +127,11 @@ cannot feed back. Only the test track plays out loud.
 - **Video clips**: a playlist of local files, played one after another. Speed, darken and red wash controls. The clip zooms and
   brightens slightly on each kick ("video punch", adjustable, off by default when your
   system asks for reduced motion).
+- **Corner pin**: for a projector hung high or off to one side, which throws a lopsided
+  picture. Turn it on, press `P` (or Adjust corners), and a grid appears. Drag each corner,
+  or pick one with `1` to `4` and nudge it with the arrow keys, until the squares look square
+  and the circle looks round on the wall. Everything is bent together: video, MilkDrop,
+  border and graph. The corners are saved, so it is done once per venue. See the note below.
 - **Show mode**: one switch (`X`) and the looks play by themselves, forever. The border
   goes through every scene in the show, each one turning smoothly into the next (a
   rectangle rounds off into an oval, widths glide, bars and pulse fade in and out). A graph
@@ -252,6 +275,7 @@ src/
     frame.js            the border drawn over the edges of the picture
     look.js             where the border, graph and zoom are right now, as numbers that can slide
     show.js             show mode: the table of scenes and its clock
+    pin.js              corner pin: bends the whole picture for a projector at an angle
     words.js            Japanese text that appears over the picture on kicks
     presets.js          MilkDrop layer and preset list
     hud.js              spectrum analysis and graph drawing

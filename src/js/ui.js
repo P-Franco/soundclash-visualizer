@@ -9,6 +9,7 @@ import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
 import { startShow } from "./show.js";
 import { clearWords } from "./words.js";
+import { editPin } from "./pin.js";
 import { FRAME_STYLES } from "./frame.js";
 
 /* A control that would do nothing in the current setup is hidden, so everything in the drawer has an
@@ -19,6 +20,7 @@ function showIf(on, ...ids){
 function tidyControls(){
   const border = S.frameStyle !== "off", round = border && S.frameShape !== "rect", show = S.showOn;
   showIf(show, "showLen");
+  showIf(S.pinOn, "pinEdit");                                         // the corner buttons only matter while the pin is on
   showIf(!show, "frameStyle", "zoom", "hudOn");                       // the show sets the border, the graph and the zoom itself while it runs
   showIf(S.xfade > 0, "xfadeLoop");                                   // nothing to crossfade when crossfade is off
   showIf(S.wordsOn, "wordsKind", "wordsAmount", "wordsSize");
@@ -102,6 +104,7 @@ export function initPanel(){
     else if(k === "m"){ $("mdOn").checked = !S.mdOn; $("mdOn").dispatchEvent(new Event("change")); }
     else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
     else if(k === "k") toggleStar();
+    else if(k === "p") editPin();
     else if(k === "x"){ $("showOn").checked = !S.showOn; $("showOn").dispatchEvent(new Event("change")); }
     else if(k === "j"){ $("wordsOn").checked = !S.wordsOn; $("wordsOn").dispatchEvent(new Event("change")); }
     else if(k === "t"){ $("statusOn").checked = !S.statusOn; $("statusOn").dispatchEvent(new Event("change")); }
