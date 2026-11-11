@@ -664,6 +664,39 @@ async function frameTests(page){
     const t = () => { const p = g.getImageData(3, 3, 1, 1).data; if(p[0] > max) max = p[0]; if(++n < 80) requestAnimationFrame(t); else res(max); }; t(); }));
   check("pulse: the border lights up on the kick", lit > 60, "red channel peaked at " + lit);
 
+  /* shapes: border widths are 8% and 10% here */
+  await set("frameColor", "rainbow"); await set("frameStyle", "solid"); await set("frameShape", "oval"); await wait(250);
+  const oval = await page.evaluate(() => {
+    const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, bx = Math.round(W * 0.08), by = Math.round(H * 0.10);
+    const px = (x, y) => Array.from(g.getImageData(Math.round(x), Math.round(y), 1, 1).data);
+    return {corner: px(2, 2), insideRect: px(bx + 8, by + 8)[3], mid: px(W / 2, H / 2)[3], top: px(W / 2, by + 10)[3]};
+  });
+  check("oval: pure black outside an oval hole", oval.corner.join(",") === "0,0,0,255" && oval.insideRect === 255 && oval.mid === 0 && oval.top === 0, "corner rgba " + oval.corner.join(","));
+
+  await set("frameStyle", "bars"); await wait(200);
+  const ring = await page.evaluate(() => new Promise(res => { const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, by = Math.round(H * 0.10); let n = 0, best = 0;
+    const t = () => {          /* a strip of pixels just under the bottom of the oval, wide enough to cross a few bars */
+      const row = g.getImageData(Math.round(W / 2 - W * 0.06), H - by + Math.round(H * 0.02), Math.round(W * 0.12), 1).data;
+      for(let i = 0; i < row.length; i += 4){ const sat = Math.max(row[i], row[i+1], row[i+2]) - Math.min(row[i], row[i+1], row[i+2]); if(sat > best) best = sat; }
+      if(++n < 70) requestAnimationFrame(t); else res(best); }; t(); }));
+  check("oval: the colour bars stand around the oval", ring > 100, "colour strength " + ring + " just below the oval");
+
+  await set("frameShape", "blob"); await wait(300);
+  const blob = await page.evaluate(() => new Promise(res => {
+    const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, rx = W / 2 - Math.round(W * 0.08), ry = H / 2 - Math.round(H * 0.10);
+    const seen = new Set(), sides = new Set(); let n = 0;
+    const t = () => {          /* test 24 points a little outside the plain oval: clear there means the blob has grown past it */
+      let bits = "";
+      for(let i = 0; i < 24; i++){ const th = i / 24 * Math.PI * 2, a = g.getImageData(Math.round(W / 2 + rx * 1.07 * Math.cos(th)), Math.round(H / 2 + ry * 1.07 * Math.sin(th)), 1, 1).data[3]; bits += a < 128 ? "1" : "0"; if(a < 128) sides.add(i >> 2); }
+      seen.add(bits);
+      if(++n < 200) requestAnimationFrame(t); else res({shapes: seen.size, sides: sides.size});
+    }; t();
+  }));
+  check("blob: the outline keeps changing", blob.shapes >= 4, blob.shapes + " different outlines in 200 frames");
+  check("blob: it bulges in different directions on different kicks", blob.sides >= 3, blob.sides + " of 6 directions in about 3 s");
+  await page.screenshot({path: path.join(outDir, "verify-blob.png")});
+  await set("frameShape", "rect"); await set("frameStyle", "bars");
+
   /* video zoom: the box that holds both videos is scaled; the kick punch can add up to 5% on top */
   const scale = () => page.evaluate(() => { const m = /scale\(([\d.]+)\)/.exec(document.getElementById("vids").style.transform); return m ? +m[1] : 1; });
   await set("zoom", 1.5); await wait(200);

@@ -83,13 +83,17 @@
       <option value="solid">Solid</option>
       <option value="bars">Colour bars that move with the music</option>
       <option value="pulse">Pulse on the kick</option></select></label>
+    <label><span>Shape of the picture</span><select id="frameShape">
+      <option value="rect">Rectangle</option>
+      <option value="oval">Oval</option>
+      <option value="blob">Blob that bulges on the beat</option></select></label>
     <label><span>Bar colours</span><select id="frameColor">
       <option value="rainbow">Rainbow</option>
       <option value="app">Red, like the rest of the app</option></select></label>
     <label><span>Left and right <b id="frameXV"></b></span><input type="range" id="frameX" min="0" max="30" step="0.5" value="6"></label>
     <label><span>Top and bottom <b id="frameYV"></b></span><input type="range" id="frameY" min="0" max="30" step="0.5" value="6"></label>
     <label><span>Video zoom <b id="zoomV"></b></span><input type="range" id="zoom" min="1" max="2" step="0.01" value="1"></label>
-    <div class="keys">The border covers the edges of the picture so clips with different built-in borders look the same. Set each pair just wide enough to hide them. Video zoom enlarges the picture instead, so a clip's own border falls off the screen; it works with the border off too. The graph and status text move inside the border.</div>
+    <div class="keys">Everything outside the picture is pure black, so a projector shows only the shape, not its own rectangle. The blob grows into the border on each kick, so give the border some width. The border covers the edges of the picture so clips with different built-in borders look the same. Set each pair just wide enough to hide them. Video zoom enlarges the picture instead, so a clip's own border falls off the screen; it works with the border off too. The graph and status text move inside the border.</div>
   </section>
 
   <section>

@@ -117,6 +117,11 @@ cannot feed back. Only the test track plays out loud.
   and top/bottom widths just wide enough to hide what is underneath. Styles: solid, colour
   bars that move with the music (rainbow or the app's red), and a pulse on the kick. The
   graph and status text move inside the border. Off by default.
+- **Shape of the picture**: everything outside the picture is pure black, so a projector
+  shows only the shape and not its own rectangle. The picture can be a rectangle, an oval,
+  or a blob: an oval whose outline drifts slowly and bulges out in a different direction
+  on each kick. With the oval and the blob, the colour bars stand all the way round the
+  outline. The blob grows into the border, so give the border some width.
 - **Video zoom**: enlarges the picture up to 200% so a clip's own border falls off the
   edge of the screen. Use it alone, or with the border to cover whatever is left.
 - **Loop region**: mark an in and an out point on a clip so only the good section plays.

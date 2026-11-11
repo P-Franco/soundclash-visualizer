@@ -37,7 +37,7 @@ function frame(now){
   const sc = S.zoom * (k > 0.004 ? 1 + 0.05*k : 1);   // zoom crops the clip's own border; the punch rides on top of it
   vidBox.style.transform = sc !== 1 ? "scale(" + sc.toFixed(4) + ")" : "none";
   dimEl.style.opacity = (S.baseDim * (1 - 0.8*k)).toFixed(3);
-  drawFrame();
+  drawFrame(now);
   drawHud(now);
 }
 

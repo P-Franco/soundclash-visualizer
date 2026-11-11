@@ -32,6 +32,7 @@ export function initSettings(){
   bindRange("punch", "punch", pct, v => { S.punch = v; });
   bindSelect("graph", "graph", v => { S.graph = v; });
   bindSelect("frameStyle", "frameStyle", v => { S.frameStyle = v; });
+  bindSelect("frameShape", "frameShape", v => { S.frameShape = v; });
   bindSelect("frameColor", "frameColor", v => { S.frameColor = v; });
   bindRange("frameX", "frameX", v => v + "%", v => { S.frameX = v; });
   bindRange("frameY", "frameY", v => v + "%", v => { S.frameY = v; });

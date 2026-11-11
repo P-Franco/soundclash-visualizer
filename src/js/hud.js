@@ -89,7 +89,12 @@ export function drawHud(now){
   hctx.clearRect(0,0,W0,H0);
   if(!S.hudOn) return;
   /* with a border on, everything here is laid out inside it */
-  const ox = S.frameStyle !== "off" ? Math.round(W0 * S.frameX / 100) : 0, oy = S.frameStyle !== "off" ? Math.round(H0 * S.frameY / 100) : 0;
+  let ox = 0, oy = 0;
+  if(S.frameStyle !== "off"){
+    ox = Math.round(W0 * S.frameX / 100); oy = Math.round(H0 * S.frameY / 100);
+    /* an oval or blob picture: keep to the largest rectangle that fits inside the oval */
+    if(S.frameShape !== "rect"){ ox = Math.round(W0 / 2 - (W0 / 2 - ox) * 0.7071); oy = Math.round(H0 / 2 - (H0 / 2 - oy) * 0.7071); }
+  }
   const W = W0 - 2*ox, H = H0 - 2*oy;
   hctx.setTransform(1,0,0,1,ox,oy);
   const dpr = W0 / innerWidth, s = dpr * Math.max(0.75, Math.min(1.6, Math.min(innerWidth/1280, innerHeight/720)));
