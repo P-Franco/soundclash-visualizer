@@ -2,6 +2,7 @@
    Performance notes: target is 60 fps at 1080p. Keep shadowBlur off for anything drawn per bar. */
 import { hud } from "./dom.js";
 import { S } from "./state.js";
+import { L as LOOK } from "./look.js";
 import { ctx, analyser } from "./audio.js";
 import { DET } from "./detect.js";
 import { presetNames, presetIdx, isStarred } from "./presets.js";
@@ -89,16 +90,15 @@ export function drawHud(now){
   const jp = S.jp;
   hctx.setTransform(1,0,0,1,0,0);
   hctx.clearRect(0,0,W0,H0);
-  /* On an oval or blob picture the graph is drawn by frame.js, curved to fit. Nothing rectangular goes on those. */
-  const curved = S.frameStyle !== "off" && S.frameShape !== "rect", graphOn = S.hudOn && !curved;
+  /* Where the border is and how much of the graph shows come from the look (look.js); in show mode both
+     slide. On a round picture the graph is drawn by frame.js, curved to fit, so this rectangular one
+     fades out as the picture rounds off. Nothing rectangular goes on a round picture. */
+  const curved = LOOK.sq < 0.5, ga = LOOK.graph * Math.max(0, 2 * LOOK.sq - 1), graphOn = ga > 0.004;
   if(!graphOn && !S.statusOn) return;                      // the graph and the status text are separate switches
-  /* with a border on, everything here is laid out inside it */
-  let ox = 0, oy = 0;
-  if(S.frameStyle !== "off"){
-    ox = Math.round(W0 * S.frameX / 100); oy = Math.round(H0 * S.frameY / 100);
-    /* an oval or blob picture: keep to the largest rectangle that fits inside the oval */
-    if(S.frameShape !== "rect"){ ox = Math.round(W0 / 2 - (W0 / 2 - ox) * 0.7071); oy = Math.round(H0 / 2 - (H0 / 2 - oy) * 0.7071); }
-  }
+  /* everything here is laid out inside the border; on a round picture, inside the largest rectangle that fits it */
+  const bxp = Math.round(W0 * LOOK.x / 100), byp = Math.round(H0 * LOOK.y / 100);
+  const inX = Math.round(W0 / 2 - (W0 / 2 - bxp) * 0.7071), inY = Math.round(H0 / 2 - (H0 / 2 - byp) * 0.7071);
+  const ox = Math.round(inX + (bxp - inX) * LOOK.sq), oy = Math.round(inY + (byp - inY) * LOOK.sq);
   const W = W0 - 2*ox, H = H0 - 2*oy;
   hctx.setTransform(1,0,0,1,ox,oy);
   const dpr = W0 / innerWidth, s = dpr * Math.max(0.75, Math.min(1.6, Math.min(innerWidth/1280, innerHeight/720)));
@@ -110,7 +110,7 @@ export function drawHud(now){
   hctx.shadowColor = "rgba(0,0,0,.85)"; hctx.shadowBlur = 0;
   if(graphOn){                                             // a soft dark fade behind the graph
     const fade = hctx.createLinearGradient(0, yT - 40*s, 0, H); fade.addColorStop(0, "rgba(12,3,4,0)"); fade.addColorStop(1, "rgba(12,3,4,.7)");
-    hctx.fillStyle = fade; hctx.fillRect(0, yT - 40*s, W, H - yT + 40*s);
+    hctx.globalAlpha = ga; hctx.fillStyle = fade; hctx.fillRect(0, yT - 40*s, W, H - yT + 40*s); hctx.globalAlpha = 1;
   }
 
   if(S.statusOn){
@@ -124,7 +124,11 @@ export function drawHud(now){
   ];
   const lx = 26*s, vx = lx + (jp ? 112 : 92)*s; let ly = 24*s;
   hctx.shadowBlur = 0;
-  if(!curved){ hctx.fillStyle = "rgba(12,3,4,.62)"; hctx.fillRect(12*s, 12*s, Math.min(W - 24*s, 600*s), 172*s); }   // dark panel behind the text
+  if(!curved){                                             // dark panel behind the text; it thins out as the picture rounds off
+    hctx.globalAlpha = Math.max(0, 2 * LOOK.sq - 1);
+    hctx.fillStyle = "rgba(12,3,4,.62)"; hctx.fillRect(12*s, 12*s, Math.min(W - 24*s, 600*s), 172*s);
+    hctx.globalAlpha = 1;
+  }
   hctx.shadowBlur = 6*s;
   for(const [k,v] of rows){ hctx.fillStyle = "#d9667e"; hctx.fillText(k, lx, ly); hctx.fillStyle = "#f3e9ea"; hctx.fillText(v, vx, ly); ly += 25*s; }
   /* level meter */
@@ -148,6 +152,8 @@ export function drawHud(now){
   }
   if(!graphOn){ hctx.shadowBlur = 0; return; }
 
+  /* the graph: everything from here on is drawn at the graph's own visibility (it fades in show mode) */
+  hctx.globalAlpha = ga;
   /* frequency grid */
   hctx.shadowBlur = 0;
   hctx.font = (14*s) + "px " + FONT; hctx.textAlign = "center"; hctx.textBaseline = "top";
@@ -158,7 +164,7 @@ export function drawHud(now){
   }
   hctx.beginPath(); hctx.moveTo(x0, yB); hctx.lineTo(x1, yB); hctx.strokeStyle = "rgba(217,102,126,.35)"; hctx.stroke();
 
-  if(S.graph === "bars"){
+  if(LOOK.gstyle === "bars"){
     /* LED bars: dim grid, lit segments, falling peak caps; a zone turns white when its hit detector fires */
     const SEG = 24, pitch = hS/SEG, sh = pitch*0.64, bw = (x1-x0)/NB, w = bw*0.74, off = (bw-w)/2;
     hctx.fillStyle = "rgba(217,102,126,.12)";
@@ -189,6 +195,7 @@ export function drawHud(now){
       const c = Math.min(SEG-1, Math.round(barCap[b]*SEG));
       if(c >= n && c > 0){ hctx.fillStyle = "rgba(243,233,234,.92)"; hctx.fillRect(x, yB - (c+1)*pitch + (pitch-sh), w, sh); }
     }
+    hctx.globalAlpha = 1;
     return;
   }
   /* curve style: soft glow in a zone when its hit detector fires */
@@ -219,7 +226,7 @@ export function drawHud(now){
     L.a += ((L.on ? 1 : 0) - L.a) * 0.12;
     if(L.a < 0.03 || !L.txt) continue;
     const bw = 124*s, bh = 60*s, bx = Math.max(x0, Math.min(x1 - bw, L.x - bw/2)), by = Math.max(yT - bh - 20*s, L.y - bh - 46*s);
-    hctx.globalAlpha = L.a;
+    hctx.globalAlpha = L.a * ga;
     hctx.strokeStyle = "#d9667e"; hctx.lineWidth = 1.6*s;
     hctx.beginPath(); hctx.moveTo(L.x, by + bh); hctx.lineTo(L.x, L.y); hctx.stroke();
     hctx.fillStyle = "#d9667e"; hctx.fillRect(L.x - 4*s, L.y - 4*s, 8*s, 8*s);
@@ -227,7 +234,7 @@ export function drawHud(now){
     hctx.shadowBlur = 0; hctx.textAlign = "center"; hctx.textBaseline = "alphabetic";
     hctx.fillStyle = "#f3e9ea"; hctx.font = (28*s) + "px " + FONT; hctx.fillText(L.txt, bx + bw/2, by + 32*s);
     hctx.fillStyle = "rgba(243,233,234,.7)"; hctx.font = (14*s) + "px " + FONT; hctx.fillText(L.hz, bx + bw/2, by + 51*s);
-    hctx.shadowBlur = 5*s; hctx.globalAlpha = 1;
+    hctx.shadowBlur = 5*s; hctx.globalAlpha = ga;
   }
   hctx.globalAlpha = 1; hctx.shadowBlur = 0;
 }

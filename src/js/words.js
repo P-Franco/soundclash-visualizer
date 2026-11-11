@@ -10,6 +10,7 @@
    status text and the graph, and well inside the outline of an oval or blob. */
 import { hud } from "./dom.js";
 import { S } from "./state.js";
+import { L as LOOK } from "./look.js";
 import { DET, onHit } from "./detect.js";
 import { N, cur, fAt, noteName } from "./hud.js";
 
@@ -33,16 +34,17 @@ function bumps(){
 
 /* Where the picture is on the canvas, and what in it to keep clear of. */
 function picture(){
-  const W = hud.width, H = hud.height, border = S.frameStyle !== "off";
-  const bx = border ? Math.round(W * S.frameX / 100) : 0, by = border ? Math.round(H * S.frameY / 100) : 0;
-  const round = border && S.frameShape !== "rect";
+  const W = hud.width, H = hud.height;
+  const bx = Math.round(W * LOOK.x / 100), by = Math.round(H * LOOK.y / 100);
+  const round = LOOK.sq < 1;                                   // anything rounder than a plain rectangle: keep well inside
+  const graph = S.showOn || LOOK.graph > 0.05;                 // in show mode the graph comes and goes, so always leave it room
   const s = W / innerWidth * Math.max(0.75, Math.min(1.6, Math.min(innerWidth / 1280, innerHeight / 720)));   // same scale the graph uses
   let status = null;
   if(S.statusOn){                // the status block sits at the top left of the area the graph is laid out in
     const ox = round ? Math.round(W / 2 - (W / 2 - bx) * 0.7071) : bx, oy = round ? Math.round(H / 2 - (H / 2 - by) * 0.7071) : by;
     status = [ox + 6 * s, oy + 6 * s, 612 * s, 184 * s];
   }
-  return {W, H, bx, by, round, s, status};
+  return {W, H, bx, by, round, graph, s, status};
 }
 const hits = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 
@@ -52,14 +54,14 @@ function place(p, w, h, pitch){
     let x, y;
     if(p.round){
       /* inside the oval, kept in from the edge (further when the curve is drawn round the inside of it) */
-      const k = S.hudOn ? 0.62 : 0.8, rx = (p.W / 2 - p.bx) * k, ry = (p.H / 2 - p.by) * k;
+      const k = p.graph ? 0.62 : 0.8, rx = (p.W / 2 - p.bx) * k, ry = (p.H / 2 - p.by) * k;
       const dy = (Math.random() * 2 - 1) * ry * 0.92, half = rx * Math.sqrt(1 - (dy / ry) * (dy / ry));
       const fx = pitch === undefined ? Math.random() : pitch;
       x = p.W / 2 - half + fx * Math.max(0, 2 * half - w); y = p.H / 2 + dy - h / 2;
     }else{
       const m = Math.min(p.W, p.H) * 0.04, innerH = p.H - 2 * p.by;
       const x0 = p.bx + m, x1 = p.W - p.bx - m - w, y0 = p.by + m;
-      const y1 = p.by + innerH * (S.hudOn ? 0.52 : 1) - m - h;          // with the graph on, keep to the part above it
+      const y1 = p.by + innerH * (p.graph ? 0.52 : 1) - m - h;          // with the graph on, keep to the part above it
       x = x0 + (pitch === undefined ? Math.random() : pitch) * Math.max(0, x1 - x0); y = y0 + Math.random() * Math.max(0, y1 - y0);
     }
     if(p.status && hits(x, y, w, h, p.status[0], p.status[1], p.status[2], p.status[3])) continue;

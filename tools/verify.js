@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,clips,shuffle,folder,frame,presets,controls,words,hotkeys]
+                               [--only=hits,stall,zones,clips,shuffle,folder,frame,presets,controls,words,show,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -115,7 +115,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function"}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function", show: !!document.getElementById("showOn")}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -150,6 +150,7 @@ async function main(){
   if(info.features.presets && run("presets")) await presetTests(page);
   if(info.features.frame && run("controls")) await controlTests(page);
   if(info.features.words && run("words")) await wordTests(page);
+  if(info.features.show && run("show")) await showTests(page);
   if(run("hotkeys")) await hotkeys(page);
 
   section("storage");
@@ -742,6 +743,91 @@ async function wordTests(page){
   g = await gather(1500);
   check("and nothing appears while it is off", g.items.length === 0);
   await put("wordsOn", true); await put("frameShape", "rect"); await put("frameStyle", "off"); await put("statusOn", true); await put("wordsAmount", 2);
+}
+
+/* ---------- show mode ---------- */
+async function showTests(page){
+  section("show mode");
+  await ensureClips(page);
+  const put = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id);
+    if(el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
+  const wait = ms => page.waitForTimeout(ms);
+  const look = () => page.evaluate(() => window.__scv.lookState());
+  /* jump to a point in the show and let the picture settle there at once */
+  const settle = async sec => { await page.evaluate(sec => { window.__scv.showSeek(sec); window.__scv.snapLook(); }, sec); await wait(120); return look(); };
+  /* follow the look frame by frame for a while */
+  const follow = ms => page.evaluate(ms => new Promise(res => { const rows = [], t0 = performance.now();
+    const t = () => { const L = window.__scv.lookState(); rows.push([L.sq, L.y, L.graph]); if(performance.now() - t0 < ms) requestAnimationFrame(t); else res(rows); }; t(); }), ms);
+  const LEN = 10;
+
+  /* your own settings, which the show must leave alone */
+  await put("wordsOn", false);
+  await put("frameShape", "rect"); await put("frameStyle", "bars"); await put("frameX", 6); await put("frameY", 6);
+  await put("zoom", 1.3); await put("hudOn", true); await put("graph", "bars");
+  await put("showLen", LEN); await put("showOn", true);
+  const SHOW = await page.evaluate(() => JSON.parse(JSON.stringify(window.__scv.SHOW)));
+
+  /* every scene, sampled at its middle */
+  let t = 0; const seen = [];
+  for(const s of SHOW.scenes){ seen.push({s, L: await settle(t + s.length * LEN / 2)}); t += s.length * LEN; }
+  const total = t;
+  const fits = ({s, L}) => L.on === 1 && L.x === s.x && L.y === s.y && L.sq === (s.shape === "rect" ? 1 : 0) && L.blob === (s.shape === "blob" ? 1 : 0) && L.bars === (s.style === "bars" ? 1 : 0) && L.pulse === (s.style === "pulse" ? 1 : 0);
+  check("the show reaches every scene in its table, with that scene's shape, style and widths", seen.every(fits), seen.length + " scenes; one loop is " + total + " s at " + LEN + " s a scene");
+  const has = (shape, style, x, y) => SHOW.scenes.some(s => s.shape === shape && s.style === style && s.x === x && s.y === y);
+  check("rectangle: solid only, 14% left and right, 15% top and bottom", has("rect", "solid", 14, 15) && !SHOW.scenes.some(s => s.shape === "rect" && s.style !== "solid"));
+  check("oval: solid, bars and pulse, 14% left and right, 10% top and bottom", ["solid", "bars", "pulse"].every(st => has("oval", st, 14, 10)));
+  const blobs = SHOW.scenes.filter(s => s.shape === "blob");
+  check("blob: 19% left and right, 18% top and bottom", blobs.length > 0 && blobs.every(s => s.x === 19 && s.y === 18), blobs.map(s => s.style).join(", "));
+  check("video zoom is 100% all through the show", seen.every(({L}) => L.zoom === 1));
+
+  /* the graph schedule, read off the show's own clock in quarter-second steps */
+  const plan = await page.evaluate(({total, morph}) => {
+    const rows = []; for(let t = 0; t < total; t += 0.25){ const a = window.__scv.showAt(t); rows.push({i: a.index, shape: a.scene.shape, g: a.graph, st: a.gstyle}); }
+    let clear = true; rows.forEach((r, k) => { const first = k === 0 || rows[k-1].i !== r.i; if(first) for(let j = k; j < rows.length && j < k + morph * 4; j++) if(rows[j].g) clear = false; });
+    return {rows, clear};
+  }, {total, morph: SHOW.morph});
+  const ups = {};
+  plan.rows.forEach((p, k) => { if(p.g && !(k && plan.rows[k-1].g)){ const key = p.shape + " " + (p.shape === "rect" ? p.st : "curve"); ups[key] = (ups[key] || 0) + 1; } });
+  check("the graph comes up at least twice on every shape, and on the rectangle both styles do", ups["rect bars"] >= 2 && ups["rect curve"] >= 2 && ups["oval curve"] >= 2 && ups["blob curve"] >= 2, Object.entries(ups).map(([k, v]) => k + " x" + v).join(", "));
+  check("the graph is out of sight while a border is changing", plan.clear);
+
+  /* one border turning into the next: the end of the rectangle scene into the oval */
+  const first = SHOW.scenes[0].length * LEN;
+  await settle(first - 0.3);
+  const rows = await follow(3800);
+  const sq = rows.map(r => r[0]), ys = rows.map(r => r[1]);
+  const between = sq.filter(v => v > 0.05 && v < 0.95).length, step = Math.max(...sq.map((v, k) => k ? Math.abs(v - sq[k-1]) : 0));
+  check("a border turns into the next gradually: the rectangle rounds off into the oval", between >= 20 && step < 0.12 && sq.every((v, k) => !k || v <= sq[k-1] + 1e-9) && sq[sq.length - 1] < 0.1, between + " in-between frames, biggest step " + step.toFixed(3));
+  check("and the widths glide with it", ys.filter(v => v > 10.3 && v < 14.7).length >= 10 && ys[ys.length - 1] < 10.6, "top and bottom from 15% to " + ys[ys.length - 1].toFixed(1) + "%");
+  await settle(first - 0.3); await wait(650);
+  await page.screenshot({path: path.join(outDir, "verify-show-morph.png")});
+
+  /* the graph fading in: first slot of the rectangle scene, LED bars */
+  const upAt = style => plan.rows.findIndex(r => r.i === 0 && r.g && r.st === style) * 0.25;     // when that graph first comes up, from the schedule
+  const want = SHOW.scenes[0].graphs;
+  await settle(upAt(want[0]) - 0.35);
+  const g = (await follow(2600)).map(r => r[2]);
+  /* at this test's 10 s scenes the graph is only up for a couple of seconds, so look at how high it got, not where it ended */
+  check("the graph fades in rather than popping", g[0] < 0.05 && g.filter(v => v > 0.05 && v < 0.95).length >= 10 && Math.max(...g) > 0.8, "from " + g[0].toFixed(2) + " up to " + Math.max(...g).toFixed(2));
+  const a = await settle(upAt(want[0]) + 0.4), b = await settle(upAt(want[1]) + 0.4);
+  check("the rectangle shows LED bars, then the spectrum curve", a.graph === 1 && a.gstyle === SHOW.scenes[0].graphs[0] && b.graph === 1 && b.gstyle === SHOW.scenes[0].graphs[1], a.gstyle + " then " + b.gstyle);
+
+  /* controls */
+  const shown = ids => page.evaluate(ids => ids.map(id => { const el = document.getElementById(id); return !(el.closest("label") || el.closest(".row") || el).hidden; }), ids);
+  check("while the show runs, the controls it has taken over are hidden", (await shown(["frameStyle", "frameShape", "frameX", "frameY", "zoom", "hudOn", "graph"])).every(v => !v) && (await shown(["showOn", "showLen", "fx", "glow"])).every(Boolean));
+
+  await put("showOn", false); await wait(150);
+  const back = await look();
+  check("turning the show off puts your own border, graph and zoom straight back", back.x === 6 && back.y === 6 && back.sq === 1 && back.bars === 1 && back.zoom === 1.3 && back.graph === 1, "border " + back.x + "%/" + back.y + "%, zoom " + back.zoom);
+  check("and your controls return, with the scene length hidden", (await shown(["frameStyle", "frameShape", "zoom", "hudOn"])).every(Boolean) && (await shown(["showLen"])).every(v => !v));
+
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.keyboard.press("x"); await wait(120);
+  const onNow = await page.evaluate(() => document.getElementById("showOn").checked);
+  await page.keyboard.press("x"); await wait(120);
+  check("X turns the show on and off", onNow === true && !(await page.evaluate(() => document.getElementById("showOn").checked)));
+
+  await put("frameStyle", "off"); await put("zoom", 1); await put("showLen", 30); await put("wordsOn", true);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

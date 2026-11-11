@@ -7,6 +7,7 @@ import { replan, newRound, nextClip, setRate } from "./clips.js";
 import { nextPreset, toggleStar, syncStars } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
+import { startShow } from "./show.js";
 import { FRAME_STYLES } from "./frame.js";
 
 /* A control that would do nothing in the current setup is hidden, so everything in the drawer has an
@@ -15,15 +16,17 @@ function showIf(on, ...ids){
   for(const id of ids){ const el = $(id); (el.closest("label") || el.closest(".row") || el).hidden = !on; }
 }
 function tidyControls(){
-  const border = S.frameStyle !== "off", round = border && S.frameShape !== "rect";
+  const border = S.frameStyle !== "off", round = border && S.frameShape !== "rect", show = S.showOn;
+  showIf(show, "showLen");
+  showIf(!show, "frameStyle", "zoom", "hudOn");                       // the show sets the border, the graph and the zoom itself while it runs
   showIf(S.xfade > 0, "xfadeLoop");                                   // nothing to crossfade when crossfade is off
   showIf(S.wordsOn, "wordsKind", "wordsAmount", "wordsSize");
-  showIf(border, "frameShape", "frameX", "frameY");
-  showIf(round, "fx");                                                // sparks and ripples come from the oval or blob
+  showIf(!show && border, "frameShape", "frameX", "frameY");
+  showIf(show || round, "fx");                                                // sparks and ripples come from the oval or blob
   showIf(S.mdOn, "preset", "rand", "lock", "starOnly", "starList", "cycle", "op", "blend");
-  showIf(S.hudOn && !round, "graph");                                 // an oval or blob has one graph, the curve: nothing to choose
-  showIf(S.statusOn || (S.hudOn && (round || S.graph === "curve")), "jp");   // labels and note names: only where text is drawn
-  showIf(border || (S.hudOn && S.graph === "bars"), "glow");
+  showIf(!show && S.hudOn && !round, "graph");                                 // an oval or blob has one graph, the curve: nothing to choose
+  showIf(show || S.statusOn || (S.hudOn && (round || S.graph === "curve")), "jp");   // labels and note names: only where text is drawn
+  showIf(show || border || (S.hudOn && S.graph === "bars"), "glow");
 }
 
 export function initSettings(){
@@ -42,6 +45,8 @@ export function initSettings(){
   bindCheck("hudOn", "hud", v => { S.hudOn = v; });
   bindCheck("statusOn", "status", v => { S.statusOn = v; });
   bindCheck("glow", "glow", v => { S.glow = v; });
+  bindRange("showLen", "showLen", v => v + " s", v => { S.showLen = v; });
+  bindCheck("showOn", "showOn", v => { S.showOn = v; if(v) startShow(performance.now()); });
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("fx").checked = false;   // a saved choice still wins
   bindCheck("fx", "fx", v => { S.fx = v; });
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("wordsOn").checked = false;
@@ -94,6 +99,7 @@ export function initPanel(){
     else if(k === "m"){ $("mdOn").checked = !S.mdOn; $("mdOn").dispatchEvent(new Event("change")); }
     else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
     else if(k === "k") toggleStar();
+    else if(k === "x"){ $("showOn").checked = !S.showOn; $("showOn").dispatchEvent(new Event("change")); }
     else if(k === "j"){ $("wordsOn").checked = !S.wordsOn; $("wordsOn").dispatchEvent(new Event("change")); }
     else if(k === "t"){ $("statusOn").checked = !S.statusOn; $("statusOn").dispatchEvent(new Event("change")); }
     else if(k === " "){ e.preventDefault(); $("lock").checked = S.locked = !S.locked; }

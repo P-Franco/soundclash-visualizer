@@ -13,6 +13,8 @@ import { initZoneEditor } from "./zone-editor.js";
 import { initFolder } from "./folder.js";
 import { drawFrame, frameState } from "./frame.js";
 import { drawWords, wordsState } from "./words.js";
+import { L, stepLook, snapLook } from "./look.js";
+import { SHOW, showSeek, showAt } from "./show.js";
 
 /* Called once audio is flowing (live input opened or a test track chosen). */
 function begin(){
@@ -30,12 +32,13 @@ function frame(now){
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - lastF)/1000 || 0.016); lastF = now;
   S.frameNo++;
+  stepLook(now, dt);                            // settle where the border, graph and zoom are for this frame
   if(S.mdOn) tickPresets(now);
   analyse();
   tickClips(now);
   const dec = Math.exp(-dt/0.14); for(const d of DET) d.env *= dec;
   const k = DET[0].env * S.punch;               // the kick pushes the video: slight zoom, and the darkening lifts
-  const sc = S.zoom * (k > 0.004 ? 1 + 0.05*k : 1);   // zoom crops the clip's own border; the punch rides on top of it
+  const sc = L.zoom * (k > 0.004 ? 1 + 0.05*k : 1);   // zoom crops the clip's own border; the punch rides on top of it
   vidBox.style.transform = sc !== 1 ? "scale(" + sc.toFixed(4) + ")" : "none";
   dimEl.style.opacity = (S.baseDim * (1 - 0.8*k)).toFixed(3);
   drawFrame(now);
@@ -53,4 +56,4 @@ initPanel();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {clips, addClips, clipState, presetState, frameState, wordsState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};
+window.__scv = {clips, addClips, clipState, presetState, frameState, wordsState, lookState: () => ({...L}), snapLook, SHOW, showSeek, showAt, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

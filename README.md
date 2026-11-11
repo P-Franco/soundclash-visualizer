@@ -46,6 +46,7 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `S` | Graph on/off |
 | `T` | Status text on/off (input, preset, clip name, time, level, hit pads) |
 | `J` | Japanese text over the picture on/off |
+| `X` | Show mode on/off |
 | `G` | Switch graph style: LED bars or spectrum curve |
 | `M` | MilkDrop layer on/off |
 | `B` | Step through the border styles |
@@ -94,6 +95,10 @@ cannot feed back. Only the test track plays out loud.
 - **Video clips**: a playlist of local files, played one after another. Speed, darken and red wash controls. The clip zooms and
   brightens slightly on each kick ("video punch", adjustable, off by default when your
   system asks for reduced motion).
+- **Show mode**: one switch (`X`) and the looks play by themselves, forever. The border
+  goes through every scene in the show, each one turning smoothly into the next (a
+  rectangle rounds off into an oval, widths glide, bars and pulse fade in and out), and the
+  graph fades in and out along the way. See "Changing the show" below.
 - **Random order**: by default every clip plays all the way through, the next one is drawn at
   random from the clips that have not played yet, and when all have played a fresh random
   order starts. The same clip never plays twice in a row. "When a clip ends" can also be
@@ -174,6 +179,32 @@ One browser quirk worth knowing: Chrome and Edge refuse to load a worklet from a
 when the page was opened from `file://`. The worklet source is therefore loaded from a
 `data:` URL on `file://`, and from a Blob URL when the page is served over http.
 
+### Changing the show
+
+The show is one table at the top of `src/js/show.js`. Each line is a scene:
+
+```js
+{shape: "rect", style: "solid", x: 14, y: 15, length: 2, graphs: ["bars", "curve", "bars", "curve"]},
+{shape: "oval", style: "bars",  x: 14, y: 10, length: 1, graphs: ["curve"]},
+{shape: "blob", style: "pulse", x: 19, y: 18, length: 1, graphs: ["curve"]},
+```
+
+- `shape`: `rect`, `oval` or `blob`. `style`: `solid`, `bars` or `pulse`.
+- `x`, `y`: border width in percent of the screen, left/right and top/bottom.
+- `length`: how long the scene lasts, in scene lengths. The Scene length slider sets how
+  many seconds one length is, so the whole show speeds up or slows down together.
+- `graphs`: the graph styles that appear during the scene, in order. Each fades in, stays,
+  and fades out before the next. The graph is always out of sight while the border changes.
+
+Reorder, edit, add or delete lines and rebuild. `zoom`, `morph` (seconds a border takes to
+turn into the next) and `fade` (seconds the graph takes to fade) are just above the table.
+
+How it works: nothing draws from the settings directly. `look.js` holds the border, graph
+and zoom as plain numbers (squareness, blob amount, widths, how much of each style shows).
+Out of show mode those numbers mirror the drawer. In show mode they slide toward what the
+current scene asks for, and the border is drawn from wherever they are, so any scene can
+turn into any other. A new border only has to be drawable from those numbers to join the show.
+
 ### How clips play
 
 There are two stacked video elements. One is on screen. The other holds the clip that is
@@ -198,6 +229,8 @@ src/
     clips.js            video playlist on two stacked videos, random order, crossfade
     folder.js           Open folder, and remembering it between launches
     frame.js            the border drawn over the edges of the picture
+    look.js             where the border, graph and zoom are right now, as numbers that can slide
+    show.js             show mode: the table of scenes and its clock
     words.js            Japanese text that appears over the picture on kicks
     presets.js          MilkDrop layer and preset list
     hud.js              spectrum analysis and graph drawing

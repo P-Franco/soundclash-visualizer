@@ -2,6 +2,8 @@
    Settings are written by the control bindings in ui.js. Runtime values are written by the module that owns them. */
 export const S = {
   /* settings */
+  showOn: false,      // show mode: the looks play one after another by themselves (see show.js)
+  showLen: 30,        // show mode: seconds in one scene length
   hudOn: true,        // graph visible
   statusOn: true,     // status text visible (input, preset, clip, time, level, hit pads)
   glow: true,         // soft glow and extra detail on the bars (graph and border)
