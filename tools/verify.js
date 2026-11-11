@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,clips,cuts,regions,random,folder,frame,presets,controls,words,hotkeys]
+                               [--only=hits,stall,zones,clips,cuts,regions,shuffle,folder,frame,presets,controls,words,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -115,7 +115,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function", random: !!document.getElementById("randOn")}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function"}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -146,7 +146,7 @@ async function main(){
   if(info.features.clipState && run("clips")) await clipTests(page);
   if(info.features.cuts && run("cuts")) await cutTests(page);
   if(info.features.regions && run("regions")) await regionTests(page);
-  if(info.features.random && run("random")) await randomTests(page);
+  if(info.features.clipState && run("shuffle")) await shuffleTests(page);
   if(info.features.folder && run("folder")) await folderTests(page);
   if(info.features.frame && run("frame")) await frameTests(page);
   if(info.features.presets && run("presets")) await presetTests(page);
@@ -557,48 +557,39 @@ async function regionTests(page){
   await wait(300);
 }
 
-/* ---------- video randomizer ---------- */
-async function randomTests(page){
-  section("video randomizer");
+/* ---------- random order, in rounds ---------- */
+async function shuffleTests(page){
+  section("random order");
   await ensureClips(page);
   const put = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id);
     if(el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
   const st = () => page.evaluate(() => window.__scv.clipState());
   const wait = ms => page.waitForTimeout(ms);
-  /* watch for a while: each clip change, and where in the clip playback was just after it */
-  const watch = ms => page.evaluate(ms => new Promise(res => { const s0 = window.__scv.clipState(); let prev = s0.idx; const landings = []; let pendingAt = 0; const t0 = performance.now();
-    const t = () => { const s = window.__scv.clipState(), now = performance.now();
-      if(s.idx !== prev){ prev = s.idx; pendingAt = now; }
-      if(pendingAt && !s.pending && now - pendingAt > 120){ landings.push(s.els[s.front].t); pendingAt = 0; }
-      if(now - t0 < ms) requestAnimationFrame(t); else res(landings); }; t(); }), ms);
+  /* let the playing clip run out: jump to just before its end and wait for the next one to take over */
+  const playOut = async () => {
+    const before = (await st()).idx;
+    await page.evaluate(() => { const s = window.__scv.clipState(), v = document.querySelectorAll("#vids video")[s.front]; v.currentTime = Math.max(0, v.duration - 0.25); });
+    await page.waitForFunction(b => { const s = window.__scv.clipState(); return s.idx !== b && !s.pending && !s.els[s.front].paused; }, before, {timeout: 5000});
+    await wait(150);
+    return (await st()).idx;
+  };
+  check("random order is the default for a new browser", await page.evaluate(() => document.getElementById("loopMode").options[0].value === "shuffle" && document.getElementById("loopMode").options[0].defaultSelected));
+  check("the timer randomizer, random points and the Random clip button are gone", await page.evaluate(() => ["randOn", "randEvery", "randPoint", "randClip"].every(id => !document.getElementById(id))));
 
-  await put("cutOn", false); await put("loopMode", "one"); await put("xfade", 0); await put("randPoint", true); await put("randOn", false);
-  await wait(300);
-  const a = await st();
+  await put("cutOn", false); await put("xfade", 0); await put("loopMode", "cycle"); await put("loopMode", "shuffle"); await wait(300);
+  const n = await page.evaluate(() => window.__scv.clips.length), start = (await st()).idx, seq = [];
+  for(let i = 0; i < n * 3; i++) seq.push(await playOut());
+  const rounds = [seq.slice(0, n), seq.slice(n, 2 * n), seq.slice(2 * n)];
+  check("each round plays every clip exactly once", rounds.every(r => new Set(r).size === n), rounds.map(r => r.map(i => i + 1).join(" ")).join("  |  "));
+  check("the same clip never plays twice in a row, across rounds too", [start, ...seq].every((v, i, a) => i === 0 || v !== a[i - 1]));
+  check("clips play from the start, not from a random point", (await page.evaluate(() => { const s = window.__scv.clipState(); return s.els[s.front].t; })) < 1.2);
+  const orders = new Set(rounds.map(r => r.join("")));
+  console.log("        (" + orders.size + " different orders in 3 rounds of " + n + " clips; with so few clips a repeat order can happen by chance)");
+
   await page.evaluate(() => document.activeElement && document.activeElement.blur());
-  await page.keyboard.press("r"); await wait(350);
-  let b = await st();
-  check("R jumps to another clip", b.idx !== a.idx && !b.els[b.front].paused, "clip " + (a.idx + 1) + " to clip " + (b.idx + 1));
-  await page.evaluate(() => document.getElementById("randClip").click()); await wait(350);
-  const c2 = await st();
-  check("the Random clip button does the same", c2.idx !== b.idx && !c2.els[c2.front].paused);
-
-  await put("randEvery", 2); await put("randOn", true); await wait(400);
-  b = await st();
-  check("the next random clip waits in the hidden video", b.els[1 - b.front].ready && b.els[1 - b.front].clip !== b.els[b.front].clip, b.els[1 - b.front].clip + " parked at " + b.els[1 - b.front].t.toFixed(2) + " s");
-  let lands = await watch(7200);
-  check("the randomizer keeps jumping on its timer", lands.length >= 3 && lands.length <= 4, lands.length + " jumps in 7.2 s at one every 2 s");
-  check("and lands on random points, not the start", lands.filter(t => t > 0.5).length >= 2, "landed at " + lands.map(t => t.toFixed(1)).join(", ") + " s");
-
-  await put("randPoint", false); await wait(300);
-  lands = await watch(5000);
-  check("with random points off, jumps start clips from the beginning", lands.length >= 2 && lands.every(t => t < 0.6), "landed at " + lands.map(t => t.toFixed(1)).join(", ") + " s");
-
-  await put("randOn", false); await wait(300);
-  lands = await watch(3000);
-  check("randomizer off: no more jumps", lands.length === 0);
-  check("the interval slider is hidden while the randomizer is off", await page.evaluate(() => document.getElementById("randEvery").closest("label").hidden));
-  await put("randPoint", true); await put("randEvery", 20); await put("loopMode", "cycle"); await put("xfade", 1);
+  const a = (await st()).idx; await page.keyboard.press("r"); await wait(300);
+  check("R no longer does anything", (await st()).idx === a);
+  await put("loopMode", "cycle"); await put("xfade", 1);
 }
 
 /* ---------- open a folder ---------- */
@@ -629,7 +620,7 @@ async function folderTests(page){
   let n = await names(), s = await page.evaluate(() => window.__scv.clipState());
   check("Open folder replaces the playlist with every video in the folder, subfolders too", n.join(" | ") === "a opener.WEBM | b intro.webm | clip 2.webm | clip 10.webm", n.join(" | "));
   check("sorted by path with numbers in order, other files ignored", n.indexOf("clip 2.webm") < n.indexOf("clip 10.webm") && !n.some(x => /txt|jpg/.test(x)));
-  check("the first clip of the folder plays", s.idx === 0 && !s.els[s.front].paused && s.els[s.front].clip === "a opener.WEBM");
+  check("a clip from the folder plays (which one is random by default)", s.idx >= 0 && !s.els[s.front].paused && n.includes(s.els[s.front].clip), s.els[s.front].clip);
   check("the drawer says which folder is loaded", /party clips, 4 clips/.test(await note()), await note());
 
   /* remembered between launches: needs a real handle */

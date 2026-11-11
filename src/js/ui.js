@@ -3,7 +3,7 @@ import { $, stageMd, panel } from "./dom.js";
 import { S } from "./state.js";
 import { bindRange, bindSelect, bindCheck, pct, onSettingChange } from "./store.js";
 import { gain } from "./audio.js";
-import { replan, nextClip, randomClip, setRate, setRegionPoint } from "./clips.js";
+import { replan, newRound, nextClip, setRate, setRegionPoint } from "./clips.js";
 import { nextPreset, toggleStar, syncStars } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
@@ -18,7 +18,6 @@ function tidyControls(){
   const border = S.frameStyle !== "off", round = border && S.frameShape !== "rect";
   showIf(S.xfade > 0, "xfadeLoop");                                   // nothing to crossfade when crossfade is off
   showIf(S.cutOn, "cutMode", "cutEvery", "cutGap");
-  showIf(S.randOn, "randEvery");
   showIf(S.wordsOn, "wordsKind", "wordsAmount", "wordsSize");
   showIf(border, "frameShape", "frameX", "frameY");
   showIf(round, "fx");                                                // sparks and ripples come from the oval or blob
@@ -38,10 +37,7 @@ export function initSettings(){
   bindRange("cycle", "cycle", v => v + " s", v => { S.cycleSec = v; });
   bindRange("op", "op", pct, v => { stageMd.style.opacity = v; });
   bindSelect("blend", "blend", v => { stageMd.style.mixBlendMode = v; });
-  bindSelect("loopMode", "loop", v => { S.loopMode = v; replan(); });
-  bindCheck("randOn", "randOn", v => { S.randOn = v; replan(); });
-  bindRange("randEvery", "randEvery", v => v + " s", v => { S.randEvery = v; });
-  bindCheck("randPoint", "randPoint", v => { S.randPoint = v; replan(); });
+  bindSelect("loopMode", "loop", v => { S.loopMode = v; newRound(); replan(); });
   bindRange("xfade", "xfade", v => v > 0 ? v.toFixed(1) + " s" : "off", v => { S.xfade = v; replan(); });
   bindCheck("xfadeLoop", "xfadeLoop", v => { S.xfadeLoop = v; replan(); });
   bindCheck("cutOn", "cutOn", v => { S.cutOn = v; replan(); });
@@ -104,7 +100,6 @@ export function initPanel(){
     else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
     else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
     else if(k === "k") toggleStar();
-    else if(k === "r") randomClip();
     else if(k === "j"){ $("wordsOn").checked = !S.wordsOn; $("wordsOn").dispatchEvent(new Event("change")); }
     else if(k === "t"){ $("statusOn").checked = !S.statusOn; $("statusOn").dispatchEvent(new Event("change")); }
     else if(k === "i") setRegionPoint("in");

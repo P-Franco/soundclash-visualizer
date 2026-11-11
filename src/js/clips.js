@@ -21,6 +21,7 @@ let mix = 0;
 let fade = null;               // {from, t0, dur} while a crossfade runs (ms)
 let pend = null;               // {el, dur} a switch waiting for its video to be ready
 let plan = null;               // {idx, at} what the back element has been loaded with
+let deck = [];                 // random order: the clips still to play in this round, next one first
 let kicks = 0;                 // kicks counted since the last beat cut
 let lastCut = 0;               // performance.now() of the last clip change of any kind
 let cuts = 0;                  // beat cuts made so far (for tests)
@@ -70,19 +71,10 @@ function fadeFor(clip, el){
   return d > 0.05 ? d : 0;
 }
 
-/* A start time of RANDOM means "a random point in the clip". It can only be settled once the clip's
-   length is known, which for a clip that is not loaded yet is after its first frame arrives. */
-const RANDOM = -1;
-function randomIn(clip, el){
-  const a = clipIn(clip), len = clipOut(clip, el) - a;
-  return isFinite(len) && len > 2 ? a + Math.random() * (len - Math.min(len * 0.3, 8)) : a;   // not so late that it ends at once
-}
-
 /* ---------- loading a clip into an element ---------- */
 /* Load `clip` into `el` and park it, paused, at `at` seconds. el._ready turns true when a frame is there. */
 function prepare(el, clip, at){
   if(el._clip === clip){
-    if(at === RANDOM && el._ready) at = randomIn(clip, el);
     el._at = at;
     if(el._ready && Math.abs(el.currentTime - at) > 0.05){ el._ready = false; el.currentTime = at; }   // "seeked" marks it ready again
     return;
@@ -106,6 +98,7 @@ function switchTo(idx, dur, at){
   if(fade){ const f = fade.from; fade = null; setMix(cur); f.pause(); }      // a fade in progress snaps to its end
   const clip = clips[idx], moved = idx !== clipIdx;
   clipIdx = idx; lastCut = performance.now();
+  { const k = deck.indexOf(clip); if(k >= 0) deck.splice(k, 1); }               // it has had its turn in this round
   showVideo(true);
   if(moved) renderClips();                      // not on every loop of the same clip: that would rebuild the list under the mouse
   const el = back();
@@ -141,8 +134,17 @@ function endFade(){
 function pickNext(){
   const n = clips.length;
   if(S.loopMode === "shuffle"){
-    const others = clips.map((c, i) => i).filter(i => i !== clipIdx && !clips[i].bad);
-    if(others.length) return others[Math.floor(Math.random() * others.length)];
+    /* Random order, in rounds: every clip plays once, then a fresh order is drawn. This only looks at
+       the next clip; a clip leaves the round when it starts playing (see switchTo). */
+    deck = deck.filter(c => !c.bad && clips.includes(c));
+    if(!deck.length){
+      deck = clips.filter(c => !c.bad);
+      for(let i = deck.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)), t = deck[i]; deck[i] = deck[j]; deck[j] = t; }
+      if(deck.length > 1 && deck[0] === clips[clipIdx]){          // a new round never opens with the clip that just played
+        const j = 1 + Math.floor(Math.random() * (deck.length - 1)), t = deck[0]; deck[0] = deck[j]; deck[j] = t;
+      }
+    }
+    if(deck.length) return clips.indexOf(deck[0]);
   }
   for(let k = 1; k <= n; k++){ const i = (clipIdx + k) % n; if(!clips[i].bad) return i; }
   return clipIdx;
@@ -154,10 +156,6 @@ function planNext(){
   const others = clips.some((c, i) => i !== clipIdx && !c.bad);
   if(S.cutOn && (S.cutMode === "point" || !others)){ const at = randomPoint(); if(at !== null) return {idx: clipIdx, at}; }
   if(S.cutOn && others) return {idx: pickNext()};
-  if(S.randOn){                                                    // the randomizer: a random other clip, parked at a random point
-    if(others) return {idx: pickRandom(), at: S.randPoint ? RANDOM : undefined};
-    if(S.randPoint){ const at = randomPoint(); if(at !== null) return {idx: clipIdx, at}; }
-  }
   if(others && S.loopMode !== "one") return {idx: pickNext()};
   if(S.xfade > 0 && S.xfadeLoop) return {idx: clipIdx};           // the same clip again, for a crossfaded loop
   if(others) return {idx: pickNext()};                             // looping one clip: still keep the next one ready for V
@@ -168,6 +166,8 @@ function preloadNext(){
   plan = planNext();
   if(plan) prepare(back(), clips[plan.idx], plan.at === undefined ? clipIn(clips[plan.idx]) : plan.at);
 }
+/* Start a fresh random order (the end-of-clip mode was changed). */
+export function newRound(){ deck = []; }
 /* Call when a setting or the list changes what should come next. */
 export function replan(){ if(clipIdx >= 0){ syncLoop(); preloadNext(); } }
 
@@ -222,36 +222,18 @@ function onKick(age){
 /* For the status block: kicks counted toward the next cut, or null when beat cuts are off. */
 export function cutInfo(){ return S.cutOn && clipIdx >= 0 ? {kicks: Math.min(kicks, S.cutEvery), every: S.cutEvery} : null; }
 
-/* ---------- randomizer ---------- */
-function pickRandom(){
-  const others = []; for(let i = 0; i < clips.length; i++) if(i !== clipIdx && !clips[i].bad) others.push(i);
-  return others.length ? others[Math.floor(Math.random() * others.length)] : clipIdx;
-}
-/* Jump to a random other clip (or, with a single clip, a random point in it). Used by the Random clip
-   button, the R key, and the randomizer's timer. Uses the crossfade setting. */
-export function randomClip(){
-  if(clipIdx < 0) return;
-  if(clips.some((c, i) => i !== clipIdx && !c.bad)){
-    const planned = plan && plan.idx !== clipIdx && clips[plan.idx] && !clips[plan.idx].bad;
-    const idx = S.randOn && planned ? plan.idx : pickRandom(), el = back();
-    const parked = el._clip === clips[idx] && el._ready && plan && plan.idx === idx && plan.at === RANDOM;   // already waiting at its random point
-    switchTo(idx, S.xfade, S.randPoint ? (parked ? el._at : RANDOM) : undefined);
-  }else{
-    const at = S.randPoint ? randomPoint() : null;
-    if(at !== null) switchTo(clipIdx, S.xfade, at); else lastCut = performance.now();
-  }
-}
-
 /* ---------- public controls ---------- */
 export function addClips(files){
+  const before = clips.length;
   for(const f of files){
     if(!isVideo(f)) continue;
     const key = f.name + "|" + f.size, r = regions[key];
     clips.push({name: f.name, url: URL.createObjectURL(f), key,
       in: r && typeof r[0] === "number" ? r[0] : null, out: r && typeof r[1] === "number" ? r[1] : null});
   }
+  if(deck.length) for(let i = before; i < clips.length; i++) deck.splice(Math.floor(Math.random() * (deck.length + 1)), 0, clips[i]);   // new clips join the round in progress
   renderClips();
-  if(clipIdx < 0 && clips.length) switchTo(0, 0);
+  if(clipIdx < 0 && clips.length) switchTo(S.loopMode === "shuffle" ? pickNext() : 0, 0);
   else replan();
 }
 
@@ -277,7 +259,7 @@ export function nextClip(){
 export function setRate(v){ for(const el of vids) el.playbackRate = v; }
 
 function stopAll(){
-  fade = null; pend = null; plan = null; clipIdx = -1;
+  fade = null; pend = null; plan = null; clipIdx = -1; deck = [];
   for(const el of vids) unload(el);
   showVideo(false); renderClips();
 }
@@ -362,7 +344,6 @@ export function tickClips(now){
     return;
   }
   if(pend || clipIdx < 0) return;
-  if(S.randOn && now - lastCut >= S.randEvery * 1000){ randomClip(); return; }      // the randomizer's timer: counts from the last change of any kind
   /* The end of the clip (or of its loop region). With a crossfade, start early enough that the fade
      finishes as the clip runs out. Without one, only a region's out point needs catching here:
      the real end of the file raises "ended". */
@@ -394,7 +375,6 @@ export function initClips(){
     el.addEventListener("loadeddata", () => {
       if(!el._clip) return;
       checkRegion(el._clip, el.duration);
-      if(el._at === RANDOM) el._at = randomIn(el._clip, el);
       if(el._at > el.duration - 0.1) el._at = clipIn(el._clip);
       if(el._at > 0.05) el.currentTime = el._at; else markReady(el);
     });
@@ -409,7 +389,6 @@ export function initClips(){
   onHit((zone, i, age) => { if(i === 0) onKick(age); });       // the kick zone is always first
   $("vids").addEventListener("change", e => { addClips(e.target.files); e.target.value = ""; });
   $("nextClip").addEventListener("click", nextClip);
-  $("randClip").addEventListener("click", randomClip);
   $("setIn").addEventListener("click", () => setRegionPoint("in"));
   $("setOut").addEventListener("click", () => setRegionPoint("out"));
   $("clearRegion").addEventListener("click", clearRegion);
@@ -433,7 +412,7 @@ export function initClips(){
 
 /* test hook: a snapshot of the playback state */
 export function clipState(){
-  return {idx: clipIdx, front: cur, mix, fading: !!fade, pending: !!pend, plan: plan && plan.idx, planAt: plan && plan.at, cuts, kicks,
+  return {deck: deck.map(c => c.name), idx: clipIdx, front: cur, mix, fading: !!fade, pending: !!pend, plan: plan && plan.idx, planAt: plan && plan.at, cuts, kicks,
     els: vids.map(el => ({clip: el._clip ? el._clip.name : null, ready: !!el._ready, paused: el.paused, loop: el.loop,
       t: el.currentTime, dur: el.duration, rate: el.playbackRate, shown: el.style.display !== "none"}))};
 }

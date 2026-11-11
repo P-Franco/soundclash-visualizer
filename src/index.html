@@ -45,7 +45,7 @@
     <h2>VIDEO CLIPS</h2>
     <div class="row"><button id="openFolder">Open folder</button>
       <label class="filebtn" for="vids">Add clips<input class="hide" type="file" id="vids" accept="video/*" multiple></label>
-      <button id="nextClip">Next clip</button><button id="randClip">Random clip</button></div>
+      <button id="nextClip">Next clip</button></div>
     <input class="hide" type="file" id="folderIn" webkitdirectory multiple>
     <div class="keys" id="folderV"></div>
     <div class="row"><button id="reopenFolder" hidden></button><button id="forgetFolder" hidden>Forget folder</button></div>
@@ -54,12 +54,9 @@
     <div class="row"><button id="setIn">Set in</button><button id="setOut">Set out</button><button id="clearRegion">Clear</button></div>
     <div class="keys" id="regionV"></div>
     <label><span>When a clip ends</span><select id="loopMode">
-      <option value="cycle">Play the next clip, loop the list</option>
-      <option value="one">Loop the current clip</option>
-      <option value="shuffle">Jump to a random clip</option></select></label>
-    <label class="check"><input type="checkbox" id="randOn"> Randomizer: keep jumping to random clips</label>
-    <label><span>Jump every <b id="randEveryV"></b></span><input type="range" id="randEvery" min="2" max="120" step="1" value="20"></label>
-    <label class="check"><input type="checkbox" id="randPoint" checked> Random jumps land on a random point in the clip</label>
+      <option value="shuffle" selected>Play every clip once in random order, then reshuffle</option>
+      <option value="cycle">Play the clips in list order, then start over</option>
+      <option value="one">Loop the current clip</option></select></label>
     <label><span>Crossfade between clips <b id="xfadeV"></b></span><input type="range" id="xfade" min="0" max="5" step="0.1" value="1"></label>
     <label class="check"><input type="checkbox" id="xfadeLoop" checked> Crossfade when one clip loops too</label>
     <label><span>Clip speed <b id="rateV"></b></span><input type="range" id="rate" min="0.25" max="2" step="0.05" value="1"></label>
@@ -149,7 +146,7 @@
 
   <section>
     <div class="row"><button id="fs">Fullscreen</button><button id="hide">Hide controls</button></div>
-    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>C</kbd> beat cuts on/off &nbsp;<kbd>I</kbd> <kbd>O</kbd> loop in/out &nbsp;<kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset &nbsp;<kbd>T</kbd> status text on/off &nbsp;<kbd>J</kbd> Japanese text on/off &nbsp;<kbd>R</kbd> random clip</div>
+    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>C</kbd> beat cuts on/off &nbsp;<kbd>I</kbd> <kbd>O</kbd> loop in/out &nbsp;<kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset &nbsp;<kbd>T</kbd> status text on/off &nbsp;<kbd>J</kbd> Japanese text on/off</div>
     <div class="keys">Visual engine: Butterchurn (MilkDrop for WebGL, MIT license) with its community preset packs.</div>
   </section>
 </aside>

@@ -15,10 +15,7 @@ export const S = {
   cycleSec: 30,       // MilkDrop auto change interval
   starOnly: false,    // auto change picks starred presets only
   starList: false,    // the preset list shows starred presets only
-  loopMode: "cycle",  // what happens when a clip ends: cycle | one | shuffle
-  randOn: false,      // randomizer: keep jumping to a random clip on a timer
-  randEvery: 20,      // seconds between the randomizer's jumps
-  randPoint: true,    // random jumps land on a random point in the clip, not its start
+  loopMode: "shuffle", // what happens when a clip ends: shuffle (random order, in rounds) | cycle | one
   xfade: 1,           // crossfade between clips in seconds, 0 = hard cut
   xfadeLoop: true,    // also crossfade when a single clip loops back to its start
   cutOn: false,       // beat-synced cuts
