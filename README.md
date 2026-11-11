@@ -48,6 +48,7 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `M` | MilkDrop layer on/off |
 | `C` | Beat cuts on/off |
 | `I` / `O` | Set the loop in / out point of the playing clip |
+| `B` | Step through the border styles |
 
 ## Wiring a DJ mixer into line-in
 
@@ -107,6 +108,11 @@ cannot feed back. Only the test track plays out loud.
   sorted by path. In Chrome and Edge the folder is remembered: next launch it either opens
   by itself or shows a one-click "Reopen" button, depending on what the browser allows.
   Nothing is copied or uploaded; the app only reads the files in place.
+- **Border**: clips come with all sorts of borders baked in. The app can draw its own
+  border over the edges of the picture so every clip looks the same. Set the left/right
+  and top/bottom widths just wide enough to hide what is underneath. Styles: solid, colour
+  bars that move with the music (rainbow or the app's red), and a pulse on the kick. The
+  graph and status text move inside the border. Off by default.
 - **Loop region**: mark an in and an out point on a clip so only the good section plays.
   Drag the position slider to find the spot, then Set in / Set out (or `I` / `O`). Looping,
   crossfades and beat cuts all stay inside the region. Regions are remembered per file
@@ -158,7 +164,9 @@ src/
     detect-core.js      the detection math (FFT, flux, thresholds), no browser APIs
     detect.worklet.js   AudioWorklet shell around detect-core.js
     zone-editor.js      HIT ZONES controls
-    clips.js            video playlist on two stacked videos, crossfade, drag and drop
+    clips.js            video playlist on two stacked videos, crossfade, cuts, loop regions
+    folder.js           Open folder, and remembering it between launches
+    frame.js            the border drawn over the edges of the picture
     presets.js          MilkDrop layer and preset list
     hud.js              spectrum analysis and graph drawing
     ui.js               control bindings, drawer, hotkeys
@@ -202,6 +210,7 @@ clicks Start, and checks:
   each end-of-clip mode, a file that cannot be decoded, removing clips,
 - beat cuts: cut rate, the minimum gap, random-point mode, the single-clip fallback,
 - loop regions: setting, looping inside the region, coming back after a reload,
+- the border: each style, by reading pixels back from its canvas,
 - open folder: reading a folder tree (with a stand-in folder, since the native dialog
   cannot be driven from a test), and with `--https` that it is remembered and reopened,
 - every hotkey,

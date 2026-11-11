@@ -11,6 +11,7 @@ import { initSettings, initPanel, showPanel } from "./ui.js";
 import { sizeCanvases } from "./stage.js";
 import { initZoneEditor } from "./zone-editor.js";
 import { initFolder } from "./folder.js";
+import { drawFrame } from "./frame.js";
 
 /* Called once audio is flowing (live input opened or a test track chosen). */
 function begin(){
@@ -35,6 +36,7 @@ function frame(now){
   const k = DET[0].env * S.punch;               // the kick pushes the video: slight zoom, and the darkening lifts
   vidBox.style.transform = k > 0.004 ? "scale(" + (1 + 0.05*k).toFixed(4) + ")" : "none";
   dimEl.style.opacity = (S.baseDim * (1 - 0.8*k)).toFixed(3);
+  drawFrame();
   drawHud(now);
 }
 

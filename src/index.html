@@ -13,6 +13,7 @@
   <div id="tint"></div>
   <div id="dim"></div>
   <canvas id="md"></canvas>
+  <canvas id="frame"></canvas>
   <canvas id="hud"></canvas>
 </div>
 
@@ -76,6 +77,21 @@
   </section>
 
   <section>
+    <h2>BORDER</h2>
+    <label><span>Border style</span><select id="frameStyle">
+      <option value="off">Off</option>
+      <option value="solid">Solid</option>
+      <option value="bars">Colour bars that move with the music</option>
+      <option value="pulse">Pulse on the kick</option></select></label>
+    <label><span>Bar colours</span><select id="frameColor">
+      <option value="rainbow">Rainbow</option>
+      <option value="app">Red, like the rest of the app</option></select></label>
+    <label><span>Left and right <b id="frameXV"></b></span><input type="range" id="frameX" min="0" max="30" step="0.5" value="6"></label>
+    <label><span>Top and bottom <b id="frameYV"></b></span><input type="range" id="frameY" min="0" max="30" step="0.5" value="6"></label>
+    <div class="keys">Covers the edges of the picture so clips with different built-in borders look the same. Set each pair just wide enough to hide them. The graph and status text move inside the border.</div>
+  </section>
+
+  <section>
     <h2>MILKDROP LAYER</h2>
     <label class="check"><input type="checkbox" id="mdOn" checked> Show the MilkDrop layer</label>
     <label><span>Preset</span><select id="preset"></select></label>
@@ -111,7 +127,7 @@
 
   <section>
     <div class="row"><button id="fs">Fullscreen</button><button id="hide">Hide controls</button></div>
-    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>C</kbd> beat cuts on/off &nbsp;<kbd>I</kbd> <kbd>O</kbd> loop in/out</div>
+    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>C</kbd> beat cuts on/off &nbsp;<kbd>I</kbd> <kbd>O</kbd> loop in/out &nbsp;<kbd>B</kbd> border style</div>
     <div class="keys">Visual engine: Butterchurn (MilkDrop for WebGL, MIT license) with its community preset pack.</div>
   </section>
 </aside>

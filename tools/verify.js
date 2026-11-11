@@ -621,6 +621,56 @@ async function folderTests(page){
   await ensureClips(page);
 }
 
+/* ---------- border ---------- */
+async function frameTests(page){
+  section("border");
+  await ensureClips(page);
+  const set = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id); el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
+  const wait = ms => page.waitForTimeout(ms);
+  /* read the border canvas: alpha in the middle and in a corner, how many different colours run along the top
+     edge, and a fingerprint of the top strip (to see it move) */
+  const look = () => page.evaluate(() => {
+    const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height;
+    const px = (x, y) => Array.from(g.getImageData(x, y, 1, 1).data);
+    const row = g.getImageData(0, 1, W, 1).data, hues = new Set(); let sum = 0;
+    for(let x = 0; x < W; x += 4){ const r = row[x*4], gg = row[x*4+1], b = row[x*4+2]; if(Math.max(r, gg, b) - Math.min(r, gg, b) > 60) hues.add((r > 128 ? 4 : 0) + (gg > 128 ? 2 : 0) + (b > 128 ? 1 : 0)); }
+    const strip = g.getImageData(0, 0, W, Math.max(1, Math.round(H * 0.05))).data;
+    for(let i = 0; i < strip.length; i += 16) sum = (sum + strip[i] * 7 + strip[i+1] * 3 + strip[i+2]) % 1000003;
+    return {mid: px(W >> 1, H >> 1)[3], corner: px(3, 3), hues: hues.size, sum, W, H};
+  });
+
+  await set("frameStyle", "off"); await wait(150);
+  let a = await look();
+  check("off: nothing is drawn", a.mid === 0 && a.corner[3] === 0);
+
+  await set("frameX", 8); await set("frameY", 10); await set("frameStyle", "solid"); await wait(150);
+  a = await look();
+  check("solid: the edges are covered and the middle is clear", a.corner[3] === 255 && a.corner[0] < 30 && a.mid === 0, "corner rgba " + a.corner.join(","));
+
+  await set("frameColor", "rainbow"); await set("frameStyle", "bars"); await wait(400);
+  a = await look(); await wait(300); const b = await look();
+  check("colour bars: several colours along the edge", a.hues >= 4 && a.mid === 0 && a.corner[3] === 255, a.hues + " colour groups");
+  check("colour bars move with the music", a.sum !== b.sum);
+  await page.mouse.move(40, 300); await wait(3800);                 // let the drawer slide away for the picture
+  await page.screenshot({path: path.join(outDir, "verify-border.png")});
+
+  await set("frameColor", "app"); await wait(300);
+  a = await look();
+  check("red bars: one colour family", a.hues <= 2 && a.hues >= 1, a.hues + " colour groups");
+
+  await set("frameStyle", "pulse"); await wait(200);
+  const lit = await page.evaluate(() => new Promise(res => { const c = document.getElementById("frame"), g = c.getContext("2d"); let n = 0, max = 0;
+    const t = () => { const p = g.getImageData(3, 3, 1, 1).data; if(p[0] > max) max = p[0]; if(++n < 80) requestAnimationFrame(t); else res(max); }; t(); }));
+  check("pulse: the border lights up on the kick", lit > 60, "red channel peaked at " + lit);
+
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await set("frameStyle", "off");
+  const seen = [];
+  for(let i = 0; i < 4; i++){ await page.keyboard.press("b"); await wait(80); seen.push(await page.evaluate(() => document.getElementById("frameStyle").value)); }
+  check("B steps through the border styles", seen.join(" ") === "solid bars pulse off", seen.join(" "));
+  check("the border style is saved", await page.evaluate(() => localStorage.getItem("scv_frameStyle")) === "off");
+}
+
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */
 async function hotkeys(page){
   section("hotkeys");

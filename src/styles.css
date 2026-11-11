@@ -19,7 +19,7 @@ html,body{height:100%;margin:0;background:var(--ink);color:var(--pale);font-fami
 #tint{background:#b3122c;mix-blend-mode:color;opacity:.55;pointer-events:none;display:none}
 #dim{background:#000;opacity:.35;pointer-events:none}
 #md{mix-blend-mode:screen}
-#hud{pointer-events:none}
+#frame,#hud{pointer-events:none}
 body.idle{cursor:none}
 
 /* start screen */

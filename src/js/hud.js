@@ -12,7 +12,8 @@ const hctx = hud.getContext("2d");
 /* ---------- spectrum readout ---------- */
 const N = 200, F0 = 40, F1 = 14000, DBMIN = -96, DBMAX = -22;
 const cur = new Float32Array(N), raw = new Float32Array(N), hist = [];
-const NB = 56, barV = new Float32Array(NB), barCap = new Float32Array(NB), barPrev = new Float32Array(NB), barFlash = new Float32Array(NB),
+export const NB = 56, barV = new Float32Array(NB);     // the bar levels are also drawn by the border (frame.js)
+const barCap = new Float32Array(NB), barPrev = new Float32Array(NB), barFlash = new Float32Array(NB),
       barLit = new Int16Array(NB), barG = new Float32Array(NB);
 
 /* A bar lights with a zone when any part of the bar's frequency span lies inside that zone. */
@@ -82,11 +83,16 @@ export function analyse(){
 }
 
 export function drawHud(now){
-  const W = hud.width, H = hud.height;
+  const W0 = hud.width, H0 = hud.height;
   const jp = S.jp;
-  hctx.clearRect(0,0,W,H);
+  hctx.setTransform(1,0,0,1,0,0);
+  hctx.clearRect(0,0,W0,H0);
   if(!S.hudOn) return;
-  const dpr = W / innerWidth, s = dpr * Math.max(0.75, Math.min(1.6, Math.min(innerWidth/1280, innerHeight/720)));
+  /* with a border on, everything here is laid out inside it */
+  const ox = S.frameStyle !== "off" ? Math.round(W0 * S.frameX / 100) : 0, oy = S.frameStyle !== "off" ? Math.round(H0 * S.frameY / 100) : 0;
+  const W = W0 - 2*ox, H = H0 - 2*oy;
+  hctx.setTransform(1,0,0,1,ox,oy);
+  const dpr = W0 / innerWidth, s = dpr * Math.max(0.75, Math.min(1.6, Math.min(innerWidth/1280, innerHeight/720)));
   const FONT = '"MS Gothic","Osaka-Mono","DotGothic16",Consolas,"Courier New",monospace';
   const x0 = 26*s, x1 = W - 26*s, yB = H - 46*s, hS = H * 0.36, yT = yB - hS;
   const X = i => x0 + (x1-x0) * i/(N-1), Y = v => yB - v*hS;

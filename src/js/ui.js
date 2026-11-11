@@ -7,6 +7,7 @@ import { replan, nextClip, setRate, setRegionPoint } from "./clips.js";
 import { nextPreset } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
+import { FRAME_STYLES } from "./frame.js";
 
 export function initSettings(){
   /* effects stay gentle by default: no video punch for people who ask for reduced motion (a saved value still wins) */
@@ -30,6 +31,10 @@ export function initSettings(){
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
   bindRange("punch", "punch", pct, v => { S.punch = v; });
   bindSelect("graph", "graph", v => { S.graph = v; });
+  bindSelect("frameStyle", "frameStyle", v => { S.frameStyle = v; });
+  bindSelect("frameColor", "frameColor", v => { S.frameColor = v; });
+  bindRange("frameX", "frameX", v => v + "%", v => { S.frameX = v; });
+  bindRange("frameY", "frameY", v => v + "%", v => { S.frameY = v; });
   bindCheck("mdOn", "md", v => { S.mdOn = v; stageMd.style.display = v ? "block" : "none"; });
   $("lock").addEventListener("change", e => { S.locked = e.target.checked; });
 }
@@ -62,6 +67,7 @@ export function initPanel(){
     else if(k === "g"){ const g = $("graph"); g.value = S.graph === "bars" ? "curve" : "bars"; g.dispatchEvent(new Event("change")); }
     else if(k === "m"){ $("mdOn").checked = !S.mdOn; $("mdOn").dispatchEvent(new Event("change")); }
     else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
+    else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
     else if(k === "i") setRegionPoint("in");
     else if(k === "o") setRegionPoint("out");
     else if(k === " "){ e.preventDefault(); $("lock").checked = S.locked = !S.locked; }
