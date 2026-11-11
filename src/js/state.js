@@ -5,6 +5,7 @@ export const S = {
   hudOn: true,        // graph visible
   statusOn: true,     // status text visible (input, preset, clip, time, level, hit pads)
   glow: true,         // soft glow and extra detail on the bars (graph and border)
+  fx: true,           // sparks and ripples from the oval or blob on each kick
   jp: true,           // Japanese labels and note names
   locked: false,      // MilkDrop preset lock (stops auto change)
   cycleSec: 30,       // MilkDrop auto change interval

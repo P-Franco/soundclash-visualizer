@@ -687,7 +687,7 @@ async function frameTests(page){
   const oval = await page.evaluate(() => {
     const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, bx = Math.round(W * 0.08), by = Math.round(H * 0.10);
     const px = (x, y) => Array.from(g.getImageData(Math.round(x), Math.round(y), 1, 1).data);
-    return {corner: px(2, 2), insideRect: px(bx + 8, by + 8)[3], mid: px(W / 2, H / 2)[3], top: px(W / 2, by + 10)[3]};
+    return {corner: px(2, 2), insideRect: px(bx + 8, by + 8)[3], mid: px(W / 2, H / 2)[3], top: px(W / 2, by + 40)[3]};       // 40 px in: past the soft dark rim just inside the edge
   });
   check("oval: pure black outside an oval hole", oval.corner.join(",") === "0,0,0,255" && oval.insideRect === 255 && oval.mid === 0 && oval.top === 0, "corner rgba " + oval.corner.join(","));
 
@@ -712,7 +712,15 @@ async function frameTests(page){
   }));
   check("blob: the outline keeps changing", blob.shapes >= 4, blob.shapes + " different outlines in 200 frames");
   check("blob: it bulges in different directions on different kicks", blob.sides >= 3, blob.sides + " of 6 directions in about 3 s");
+  const fx = await page.evaluate(() => new Promise(res => { let sparks = 0, rings = 0, n = 0;
+    const t = () => { const s = window.__scv.frameState(); sparks = Math.max(sparks, s.sparks); rings = Math.max(rings, s.ripples); if(++n < 150) requestAnimationFrame(t); else res({sparks, rings}); }; t(); }));
+  check("blob: a kick throws sparks and sends out a ring", fx.sparks > 0 && fx.rings > 0, "up to " + fx.sparks + " sparks and " + fx.rings + " rings at once");
+  await page.waitForFunction(() => { const s = window.__scv.frameState(); return s.sparks > 12 && s.ripples > 0; }, null, {timeout: 5000});   // catch a kick for the picture
   await page.screenshot({path: path.join(outDir, "verify-blob.png")});
+  await tick("fx", false); await wait(200);
+  const quiet = await page.evaluate(() => window.__scv.frameState());
+  check("sparks and ripples can be switched off", quiet.sparks === 0 && quiet.ripples === 0);
+  await tick("fx", true);
   await tick("glow", false); await wait(200);
   const plain = await look();
   await tick("glow", true); await wait(200);

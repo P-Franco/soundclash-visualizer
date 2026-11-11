@@ -11,7 +11,7 @@ import { initSettings, initPanel, showPanel } from "./ui.js";
 import { sizeCanvases } from "./stage.js";
 import { initZoneEditor } from "./zone-editor.js";
 import { initFolder } from "./folder.js";
-import { drawFrame } from "./frame.js";
+import { drawFrame, frameState } from "./frame.js";
 
 /* Called once audio is flowing (live input opened or a test track chosen). */
 function begin(){
@@ -51,4 +51,4 @@ initPanel();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {clips, addClips, clipState, presetState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};
+window.__scv = {clips, addClips, clipState, presetState, frameState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

@@ -122,6 +122,12 @@ cannot feed back. Only the test track plays out loud.
   a bright centre line that flares on hits, and falling peak markers. One checkbox turns
   it off for a plainer look or a slower machine. The glow is built from a few wide, faint
   strokes, not `shadowBlur`.
+- **Sparks and ripples**: with the oval or blob, each kick sends a faint ring spreading out
+  from the outline and throws a handful of sparks. The outline itself is drawn in the same
+  rainbow as the bars, and a soft dark rim just inside the edge gives the picture depth.
+  The blob also breathes with the kick, lifts into broad lobes on a snare, and shimmers on
+  hats. One checkbox turns the sparks and ripples off; it starts off when your system asks
+  for reduced motion.
 - **Shape of the picture**: everything outside the picture is pure black, so a projector
   shows only the shape and not its own rectangle. The picture can be a rectangle, an oval,
   or a blob: an oval whose outline drifts slowly and bulges out in a different direction

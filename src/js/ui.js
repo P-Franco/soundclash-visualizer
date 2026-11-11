@@ -29,6 +29,8 @@ export function initSettings(){
   bindCheck("hudOn", "hud", v => { S.hudOn = v; });
   bindCheck("statusOn", "status", v => { S.statusOn = v; });
   bindCheck("glow", "glow", v => { S.glow = v; });
+  if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("fx").checked = false;   // a saved choice still wins
+  bindCheck("fx", "fx", v => { S.fx = v; });
   bindCheck("jp", "jp", v => { S.jp = v; });
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
   bindRange("punch", "punch", pct, v => { S.punch = v; });
