@@ -125,12 +125,12 @@ cannot feed back. Only the test track plays out loud.
   a bright centre line that flares on hits, and falling peak markers. One checkbox turns
   it off for a plainer look or a slower machine. The glow is built from a few wide, faint
   strokes, not `shadowBlur`.
-- **Graph on an oval or blob**: a rectangular graph looks wrong on a round picture, so both
-  graph styles switch form by themselves. With the oval or blob, the LED bars stand inward
-  from the edge all the way round, and the spectrum curve becomes a closed line inside the
-  edge with the two strongest notes written beside it. Both follow the blob as it moves.
-  The status text loses its dark panel there too. The rectangular versions only appear on
-  a rectangular picture.
+- **Graph on an oval or blob**: a rectangular graph looks wrong on a round picture, so
+  there the graph is the spectrum curve as a closed line just inside the edge, with the
+  two strongest notes written beside it. It follows the blob as it moves. There are no LED
+  bars inside the shape: the colour bars outside it are the only bars. The status text
+  loses its dark panel there too. The rectangular graphs only appear on a rectangular
+  picture, and the graph style list is hidden when there is nothing to choose.
 - **Sparks and ripples**: with the oval or blob, each kick sends a faint ring spreading out
   from the outline and throws a handful of sparks. The outline itself is drawn in the same
   rainbow as the bars, and a soft dark rim just inside the edge gives the picture depth.

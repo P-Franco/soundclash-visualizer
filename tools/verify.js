@@ -702,11 +702,11 @@ async function frameTests(page){
   await tick("hudOn", true); await set("graph", "bars"); await wait(300);
   h = await hudLook();
   const leds = await inside();
-  check("oval: the rectangular graph is gone and LED bars stand round the inside of the edge", !h.graph && leds > bare + 50, leds + " graph pixels just inside the bottom edge, " + bare + " without the graph");
-  check("oval: the graph list names the curved versions", /round the inside/.test(await names()), await names());
+  check("oval: the rectangular graph is gone and the spectrum curve runs round the inside of the edge", !h.graph && leds > bare + 50, leds + " graph pixels just inside the bottom edge, " + bare + " without the graph");
+  check("oval: one graph only, so the style list is hidden", await page.evaluate(() => document.getElementById("graph").closest("label").hidden));
   await set("graph", "curve"); await wait(400);
   h = await hudLook();
-  check("oval: the spectrum curve runs round the inside of the edge", !h.graph && (await inside()) > bare + 50);
+  check("oval: choosing the other style changes nothing there (no LED bars inside)", !h.graph && (await inside()) > bare + 50);
   await page.screenshot({path: path.join(outDir, "verify-ring-curve.png")});
   await set("graph", "bars");
 
@@ -746,7 +746,7 @@ async function frameTests(page){
   check("glow can be switched off and on without breaking the border", plain.corner[3] === 255 && (await look()).corner[3] === 255 && await page.evaluate(() => localStorage.getItem("scv_glow")) === "1");
   await set("frameShape", "rect"); await set("frameStyle", "bars"); await wait(200);
   h = await hudLook();
-  check("rectangle: the rectangular graph is back", h.graph && /light up on hits/.test(await names()));
+  check("rectangle: the rectangular graph and its style list are back", h.graph && /light up on hits/.test(await names()) && await page.evaluate(() => !document.getElementById("graph").closest("label").hidden));
 
   /* video zoom: the box that holds both videos is scaled; the kick punch can add up to 5% on top */
   const scale = () => page.evaluate(() => { const m = /scale\(([\d.]+)\)/.exec(document.getElementById("vids").style.transform); return m ? +m[1] : 1; });

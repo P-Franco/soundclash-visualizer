@@ -212,46 +212,11 @@ function layoutRing(cx, cy, rx, ry, reach, gap){
 
 /* ---------- the graph, in a form that fits an oval or blob ---------- */
 /* On a rectangle the graph is a rectangle along the bottom (hud.js). On an oval or blob that looks out
-   of place, so both graph styles are drawn here instead, running round the inside of the edge and
-   following it as the blob moves: lows at the bottom, highs at the top, the same on both sides. */
+   of place, so the graph drawn here instead is the spectrum curve, running round the inside of the edge
+   and following it as the blob moves: lows at the bottom, highs at the top, the same on both sides.
+   There are no LED bars inside the shape: the colour bars outside it are the only bars. */
 const FONT = '"MS Gothic","Osaka-Mono","DotGothic16",Consolas,"Courier New",monospace';
-const LED_SEGS = 10;
-const LED_INK = Array.from({length: 9}, (_, k) => "rgb(" + Math.round(217 + 38 * k / 8) + "," + Math.round(102 + 153 * k / 8) + "," + Math.round(126 + 129 * k / 8) + ")");
 const GHOST = ["rgba(217,102,126,.75)", "rgba(190,150,158,.45)", "rgba(150,150,150,.3)"];
-
-/* LED bars standing inward from the edge: dim grid, lit segments that whiten on a hit, falling peak caps */
-function innerBar(cx, cy, rx, ry, th, gap, width, reach, band){
-  const c = Math.cos(th), s = Math.sin(th), m = edgeAt(th);
-  let nx = c / rx, ny = s / ry; const k = 1 / Math.sqrt(nx * nx + ny * ny); nx *= k; ny *= k;
-  put(cx + rx * m * c - nx * gap, cy + ry * m * s - ny * gap, -nx, -ny, width, reach, band, barV[band], barCap[band], barGlow(band));
-}
-function innerLeds(cx, cy, rx, ry, gap, reach){
-  const around = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
-  const width = Math.max(2, around / (2 * NB) * 0.56), seg = reach / LED_SEGS;
-  count = 0;
-  for(let j = 0; j < NB; j++){
-    const th = Math.PI / 2 - (j + 0.5) * Math.PI / NB;
-    innerBar(cx, cy, rx, ry, th, gap, width, reach, j); innerBar(cx, cy, rx, ry, Math.PI - th, gap, width, reach, j);
-  }
-  g.lineWidth = width; g.lineCap = "butt";
-  DASH[0] = seg * 0.64; DASH[1] = seg * 0.36; g.setLineDash(DASH);
-  g.strokeStyle = "rgba(217,102,126,.16)";
-  for(let i = 0; i < count; i++) line(i, 0, reach);                                   // the unlit grid
-  if(S.glow){
-    g.setLineDash(NO_DASH); g.globalCompositeOperation = "lighter"; g.strokeStyle = ROSE; g.lineWidth = width * 2.4;
-    for(let i = 0; i < count; i++){ const n = Math.min(LED_SEGS, Math.round(LVL[i] * LED_SEGS)); if(!n) continue; g.globalAlpha = 0.05 + 0.08 * LVL[i] + 0.2 * HIT[i]; line(i, 0, n * seg); }
-    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; g.lineWidth = width; g.setLineDash(DASH);
-  }
-  for(let i = 0; i < count; i++){                                                      // lit segments
-    const n = Math.min(LED_SEGS, Math.round(LVL[i] * LED_SEGS)); if(!n) continue;
-    g.strokeStyle = LED_INK[Math.round(HIT[i] * 8)]; line(i, 0, n * seg);
-  }
-  g.setLineDash(NO_DASH); g.strokeStyle = "rgba(243,233,234,.92)";
-  for(let i = 0; i < count; i++){                                                      // peak caps
-    const n = Math.min(LED_SEGS, Math.round(LVL[i] * LED_SEGS)), c = Math.min(LED_SEGS - 1, Math.round(PEAK[i] * LED_SEGS));
-    if(c >= n && c > 0) line(i, c * seg, c * seg + seg * 0.64);
-  }
-}
 
 /* The spectrum curve as a closed line inside the edge: the louder a frequency, the further it leans in. */
 const TH = new Float32Array(N), THC = new Float32Array(N), THS = new Float32Array(N);
@@ -386,10 +351,7 @@ export function drawFrame(now){
     g.strokeStyle = "rgba(0,0,0,.20)"; g.lineWidth = lw * 10; g.stroke();
   }
   if(style === "bars"){ layoutRing(cx, cy, rx, ry, Math.min(bx, by) || Math.min(W, H) * 0.04, lw * 3); paintBars(); }
-  if(graphHere){
-    if(S.graph === "bars") innerLeds(cx, cy, rx, ry, lw * 14, Math.min(rx, ry) * 0.2);
-    else innerCurve(cx, cy, rx, ry, lw * 14, Math.min(rx, ry) * 0.24, lw, W);
-  }
+  if(graphHere) innerCurve(cx, cy, rx, ry, lw * 14, Math.min(rx, ry) * 0.24, lw, W);
   const ink = edgeInk(cx, cy);
   if(S.fx){ drawRipples(now, cx, cy, rx, ry, lw, ink); drawSparks(dt, lw); }
   /* the outline itself: a soft halo when glow is on, then a line that swells on the kick in pulse style */
