@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,presets,controls,words,hotkeys]
+                               [--only=hits,stall,zones,clips,cuts,regions,random,folder,frame,presets,controls,words,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -115,7 +115,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function"}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function", random: !!document.getElementById("randOn")}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -146,6 +146,7 @@ async function main(){
   if(info.features.clipState && run("clips")) await clipTests(page);
   if(info.features.cuts && run("cuts")) await cutTests(page);
   if(info.features.regions && run("regions")) await regionTests(page);
+  if(info.features.random && run("random")) await randomTests(page);
   if(info.features.folder && run("folder")) await folderTests(page);
   if(info.features.frame && run("frame")) await frameTests(page);
   if(info.features.presets && run("presets")) await presetTests(page);
@@ -407,6 +408,7 @@ async function cutTests(page){
   w = await watch(6400);
   check("a 3 s minimum gap holds the cuts back", w.cuts >= 1 && w.cuts <= 3, w.cuts + " cuts in 6.4 s");
 
+  await set("loopMode", "one"); await set("xfade", 0);        // so the clip cannot reach its end and move on by itself mid-test
   await set("cutMode", "point"); await set("cutGap", 0.5); await wait(1200);
   a = await st();
   check("random-point mode parks a second copy of the clip at the jump target", bk(a).clip === fr(a).clip && typeof a.planAt === "number", "target " + (a.planAt === null || a.planAt === undefined ? "none" : a.planAt.toFixed(2) + " s"));
@@ -428,8 +430,10 @@ async function cutTests(page){
   w = await watch(1500);
   check("and no more cuts once off", w.cuts === 0);
 
-  await page.evaluate(() => window.__scv.addClips(window.__testClips.slice(1)));
-  await wait(500);
+  /* leave a clean list: the three clips, each exactly once (later sections key things by file) */
+  await page.evaluate(() => { while(window.__scv.clips.length) document.querySelector("#clips li button").click(); window.__scv.addClips(window.__testClips); });
+  await set("loopMode", "cycle"); await set("xfade", 1);
+  await wait(600);
 }
 
 /* ---------- per-clip loop regions ---------- */
@@ -551,6 +555,50 @@ async function regionTests(page){
   await click("clearRegion");
   await set("loopMode", "cycle"); await set("xfade", 1);
   await wait(300);
+}
+
+/* ---------- video randomizer ---------- */
+async function randomTests(page){
+  section("video randomizer");
+  await ensureClips(page);
+  const put = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id);
+    if(el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
+  const st = () => page.evaluate(() => window.__scv.clipState());
+  const wait = ms => page.waitForTimeout(ms);
+  /* watch for a while: each clip change, and where in the clip playback was just after it */
+  const watch = ms => page.evaluate(ms => new Promise(res => { const s0 = window.__scv.clipState(); let prev = s0.idx; const landings = []; let pendingAt = 0; const t0 = performance.now();
+    const t = () => { const s = window.__scv.clipState(), now = performance.now();
+      if(s.idx !== prev){ prev = s.idx; pendingAt = now; }
+      if(pendingAt && !s.pending && now - pendingAt > 120){ landings.push(s.els[s.front].t); pendingAt = 0; }
+      if(now - t0 < ms) requestAnimationFrame(t); else res(landings); }; t(); }), ms);
+
+  await put("cutOn", false); await put("loopMode", "one"); await put("xfade", 0); await put("randPoint", true); await put("randOn", false);
+  await wait(300);
+  const a = await st();
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.keyboard.press("r"); await wait(350);
+  let b = await st();
+  check("R jumps to another clip", b.idx !== a.idx && !b.els[b.front].paused, "clip " + (a.idx + 1) + " to clip " + (b.idx + 1));
+  await page.evaluate(() => document.getElementById("randClip").click()); await wait(350);
+  const c2 = await st();
+  check("the Random clip button does the same", c2.idx !== b.idx && !c2.els[c2.front].paused);
+
+  await put("randEvery", 2); await put("randOn", true); await wait(400);
+  b = await st();
+  check("the next random clip waits in the hidden video", b.els[1 - b.front].ready && b.els[1 - b.front].clip !== b.els[b.front].clip, b.els[1 - b.front].clip + " parked at " + b.els[1 - b.front].t.toFixed(2) + " s");
+  let lands = await watch(7200);
+  check("the randomizer keeps jumping on its timer", lands.length >= 3 && lands.length <= 4, lands.length + " jumps in 7.2 s at one every 2 s");
+  check("and lands on random points, not the start", lands.filter(t => t > 0.5).length >= 2, "landed at " + lands.map(t => t.toFixed(1)).join(", ") + " s");
+
+  await put("randPoint", false); await wait(300);
+  lands = await watch(5000);
+  check("with random points off, jumps start clips from the beginning", lands.length >= 2 && lands.every(t => t < 0.6), "landed at " + lands.map(t => t.toFixed(1)).join(", ") + " s");
+
+  await put("randOn", false); await wait(300);
+  lands = await watch(3000);
+  check("randomizer off: no more jumps", lands.length === 0);
+  check("the interval slider is hidden while the randomizer is off", await page.evaluate(() => document.getElementById("randEvery").closest("label").hidden));
+  await put("randPoint", true); await put("randEvery", 20); await put("loopMode", "cycle"); await put("xfade", 1);
 }
 
 /* ---------- open a folder ---------- */

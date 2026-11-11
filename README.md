@@ -43,6 +43,7 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `N` | Next MilkDrop preset |
 | `Space` | Lock the current preset (stops auto change) |
 | `V` | Next video clip |
+| `R` | Random video clip, at a random point |
 | `S` | Graph on/off |
 | `T` | Status text on/off (input, preset, clip name, time, level, hit pads) |
 | `J` | Japanese text over the picture on/off |
@@ -97,6 +98,11 @@ cannot feed back. Only the test track plays out loud.
   loop, or jump to a random clip. Speed, darken and red wash controls. The clip zooms and
   brightens slightly on each kick ("video punch", adjustable, off by default when your
   system asks for reduced motion).
+- **Randomizer**: turn it on and the video keeps jumping to a random clip every few seconds
+  (2 to 120, your choice), landing on a random point in the clip rather than its start.
+  The **Random clip** button and `R` do one such jump whenever you want. Jumps use the
+  crossfade, and the next random clip is opened ahead of time, already parked at its
+  random point, so the change is smooth. With a single clip it jumps around inside it.
 - **Crossfade**: clips dissolve into each other instead of cutting, over 0 to 5 seconds
   (1 second by default, 0 is a hard cut). A single looping clip can crossfade into its own
   start too. Turn that off if your clip is already a seamless loop.

@@ -70,10 +70,19 @@ function fadeFor(clip, el){
   return d > 0.05 ? d : 0;
 }
 
+/* A start time of RANDOM means "a random point in the clip". It can only be settled once the clip's
+   length is known, which for a clip that is not loaded yet is after its first frame arrives. */
+const RANDOM = -1;
+function randomIn(clip, el){
+  const a = clipIn(clip), len = clipOut(clip, el) - a;
+  return isFinite(len) && len > 2 ? a + Math.random() * (len - Math.min(len * 0.3, 8)) : a;   // not so late that it ends at once
+}
+
 /* ---------- loading a clip into an element ---------- */
 /* Load `clip` into `el` and park it, paused, at `at` seconds. el._ready turns true when a frame is there. */
 function prepare(el, clip, at){
   if(el._clip === clip){
+    if(at === RANDOM && el._ready) at = randomIn(clip, el);
     el._at = at;
     if(el._ready && Math.abs(el.currentTime - at) > 0.05){ el._ready = false; el.currentTime = at; }   // "seeked" marks it ready again
     return;
@@ -145,6 +154,10 @@ function planNext(){
   const others = clips.some((c, i) => i !== clipIdx && !c.bad);
   if(S.cutOn && (S.cutMode === "point" || !others)){ const at = randomPoint(); if(at !== null) return {idx: clipIdx, at}; }
   if(S.cutOn && others) return {idx: pickNext()};
+  if(S.randOn){                                                    // the randomizer: a random other clip, parked at a random point
+    if(others) return {idx: pickRandom(), at: S.randPoint ? RANDOM : undefined};
+    if(S.randPoint){ const at = randomPoint(); if(at !== null) return {idx: clipIdx, at}; }
+  }
   if(others && S.loopMode !== "one") return {idx: pickNext()};
   if(S.xfade > 0 && S.xfadeLoop) return {idx: clipIdx};           // the same clip again, for a crossfaded loop
   if(others) return {idx: pickNext()};                             // looping one clip: still keep the next one ready for V
@@ -182,9 +195,9 @@ function advance(dur){
 function randomPoint(){
   const el = front(), clip = clips[clipIdx], a = clipIn(clip), len = clipOut(clip, el) - a;
   if(el._clip !== clip || !isFinite(len) || len < 1) return null;
-  const room = len - Math.min(2, len * 0.25);
+  const room = len - Math.min(2, len * 0.25), away = Math.max(len * 0.1, Math.min(0.6, len * 0.3));
   let t = a, n = 0;
-  do { t = a + Math.random() * room; } while(Math.abs(t - el.currentTime) < len * 0.1 && ++n < 8);
+  do { t = a + Math.random() * room; } while(Math.abs(t - el.currentTime) < away && ++n < 12);
   return t;
 }
 
@@ -198,13 +211,36 @@ function onKick(age){
   const others = clips.some((c, i) => i !== clipIdx && !c.bad);
   if(S.cutMode === "clip" && others){ cuts++; switchTo(nextIdx(), 0); return; }
   /* a random point in this clip; also what happens when there is no other clip to jump to */
-  const at = plan && plan.idx === clipIdx && plan.at !== undefined ? plan.at : randomPoint();
+  let at = plan && plan.idx === clipIdx && plan.at !== undefined ? plan.at : randomPoint();
+  /* The parked point was chosen a while ago. If playback has since run up next to it, the cut would
+     hardly show, so pick again now (a short seek, instead of an instant swap). */
+  if(at !== null && Math.abs(at - front().currentTime) < 0.6) at = randomPoint();
   if(at === null) return;
   cuts++; switchTo(clipIdx, 0, at);
 }
 
 /* For the status block: kicks counted toward the next cut, or null when beat cuts are off. */
 export function cutInfo(){ return S.cutOn && clipIdx >= 0 ? {kicks: Math.min(kicks, S.cutEvery), every: S.cutEvery} : null; }
+
+/* ---------- randomizer ---------- */
+function pickRandom(){
+  const others = []; for(let i = 0; i < clips.length; i++) if(i !== clipIdx && !clips[i].bad) others.push(i);
+  return others.length ? others[Math.floor(Math.random() * others.length)] : clipIdx;
+}
+/* Jump to a random other clip (or, with a single clip, a random point in it). Used by the Random clip
+   button, the R key, and the randomizer's timer. Uses the crossfade setting. */
+export function randomClip(){
+  if(clipIdx < 0) return;
+  if(clips.some((c, i) => i !== clipIdx && !c.bad)){
+    const planned = plan && plan.idx !== clipIdx && clips[plan.idx] && !clips[plan.idx].bad;
+    const idx = S.randOn && planned ? plan.idx : pickRandom(), el = back();
+    const parked = el._clip === clips[idx] && el._ready && plan && plan.idx === idx && plan.at === RANDOM;   // already waiting at its random point
+    switchTo(idx, S.xfade, S.randPoint ? (parked ? el._at : RANDOM) : undefined);
+  }else{
+    const at = S.randPoint ? randomPoint() : null;
+    if(at !== null) switchTo(clipIdx, S.xfade, at); else lastCut = performance.now();
+  }
+}
 
 /* ---------- public controls ---------- */
 export function addClips(files){
@@ -326,6 +362,7 @@ export function tickClips(now){
     return;
   }
   if(pend || clipIdx < 0) return;
+  if(S.randOn && now - lastCut >= S.randEvery * 1000){ randomClip(); return; }      // the randomizer's timer: counts from the last change of any kind
   /* The end of the clip (or of its loop region). With a crossfade, start early enough that the fade
      finishes as the clip runs out. Without one, only a region's out point needs catching here:
      the real end of the file raises "ended". */
@@ -357,6 +394,7 @@ export function initClips(){
     el.addEventListener("loadeddata", () => {
       if(!el._clip) return;
       checkRegion(el._clip, el.duration);
+      if(el._at === RANDOM) el._at = randomIn(el._clip, el);
       if(el._at > el.duration - 0.1) el._at = clipIn(el._clip);
       if(el._at > 0.05) el.currentTime = el._at; else markReady(el);
     });
@@ -371,6 +409,7 @@ export function initClips(){
   onHit((zone, i, age) => { if(i === 0) onKick(age); });       // the kick zone is always first
   $("vids").addEventListener("change", e => { addClips(e.target.files); e.target.value = ""; });
   $("nextClip").addEventListener("click", nextClip);
+  $("randClip").addEventListener("click", randomClip);
   $("setIn").addEventListener("click", () => setRegionPoint("in"));
   $("setOut").addEventListener("click", () => setRegionPoint("out"));
   $("clearRegion").addEventListener("click", clearRegion);
