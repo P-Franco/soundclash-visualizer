@@ -18,6 +18,7 @@ function tidyControls(){
   const border = S.frameStyle !== "off", round = border && S.frameShape !== "rect";
   showIf(S.xfade > 0, "xfadeLoop");                                   // nothing to crossfade when crossfade is off
   showIf(S.cutOn, "cutMode", "cutEvery", "cutGap");
+  showIf(S.wordsOn, "wordsKind", "wordsAmount", "wordsSize");
   showIf(border, "frameShape", "frameX", "frameY");
   showIf(round, "fx");                                                // sparks and ripples come from the oval or blob
   showIf(S.frameStyle === "bars" || S.frameStyle === "pulse" || round, "frameColor");   // a plain solid rectangle has nothing to colour
@@ -49,6 +50,11 @@ export function initSettings(){
   bindCheck("glow", "glow", v => { S.glow = v; });
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("fx").checked = false;   // a saved choice still wins
   bindCheck("fx", "fx", v => { S.fx = v; });
+  if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("wordsOn").checked = false;
+  bindCheck("wordsOn", "wordsOn", v => { S.wordsOn = v; });
+  bindSelect("wordsKind", "wordsKind", v => { S.wordsKind = v; });
+  bindRange("wordsAmount", "wordsAmount", v => v + " a kick", v => { S.wordsAmount = v; });
+  bindRange("wordsSize", "wordsSize", v => v + " px", v => { S.wordsSize = v; });
   bindCheck("jp", "jp", v => { S.jp = v; });
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
   bindRange("punch", "punch", pct, v => { S.punch = v; });
@@ -96,6 +102,7 @@ export function initPanel(){
     else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
     else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
     else if(k === "k") toggleStar();
+    else if(k === "j"){ $("wordsOn").checked = !S.wordsOn; $("wordsOn").dispatchEvent(new Event("change")); }
     else if(k === "t"){ $("statusOn").checked = !S.statusOn; $("statusOn").dispatchEvent(new Event("change")); }
     else if(k === "i") setRegionPoint("in");
     else if(k === "o") setRegionPoint("out");

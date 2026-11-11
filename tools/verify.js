@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,presets,controls,hotkeys]
+                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,presets,controls,words,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -115,7 +115,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function"}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function"}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -150,6 +150,7 @@ async function main(){
   if(info.features.frame && run("frame")) await frameTests(page);
   if(info.features.presets && run("presets")) await presetTests(page);
   if(info.features.frame && run("controls")) await controlTests(page);
+  if(info.features.words && run("words")) await wordTests(page);
   if(run("hotkeys")) await hotkeys(page);
 
   section("storage");
@@ -855,6 +856,54 @@ async function controlTests(page){
   check("crossfade on: it is back", all(await on(["xfadeLoop"])));
 
   for(const [id, v] of Object.entries(before)) await put(id, v);
+}
+
+/* ---------- Japanese text over the picture ---------- */
+async function wordTests(page){
+  section("Japanese text");
+  await ensureClips(page);
+  const put = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id);
+    if(el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
+  const wait = ms => page.waitForTimeout(ms);
+  /* collect every label seen over a while, with the canvas size */
+  const gather = ms => page.evaluate(ms => new Promise(res => { const seen = new Map(), t0 = performance.now(); let most = 0;
+    const t = () => { const now = window.__scv.wordsState(); most = Math.max(most, now.length); for(const L of now) seen.set(L.txt + "@" + Math.round(L.x) + "," + Math.round(L.y), L);
+      if(performance.now() - t0 < ms) requestAnimationFrame(t); else { const c = document.getElementById("hud"); res({items: Array.from(seen.values()), most, W: c.width, H: c.height}); } }; t(); }), ms);
+  const JP = /[\u3040-\u30ff\u4e00-\u9fff]/, NOTE = /^[ハニホヘトイロ]#?-\d$/;
+
+  await put("wordsOn", false);                                // off while the layout changes, so no label is left from the old one
+  await put("statusOn", true); await put("hudOn", true); await put("graph", "bars");
+  await put("frameShape", "rect"); await put("frameStyle", "solid"); await put("frameX", 8); await put("frameY", 10);
+  await put("wordsKind", "both"); await put("wordsAmount", 3); await put("wordsSize", 15); await put("wordsOn", true);
+  let g = await gather(4000);
+  const bx = g.W * 0.08, by = g.H * 0.10;
+  check("labels appear with the kicks", g.items.length >= 8 && g.most >= 3, g.items.length + " labels in 4 s, up to " + g.most + " on screen");
+  check("every label is Japanese text", g.items.every(L => JP.test(L.txt)), g.items.slice(0, 6).map(L => L.txt).join("  "));
+  check("both kinds show: note names and words", g.items.some(L => NOTE.test(L.txt)) && g.items.some(L => !NOTE.test(L.txt)));
+  check("all inside the border, above the graph", g.items.every(L => L.x >= bx && L.x + L.w <= g.W - bx && L.y >= by && L.y + L.h <= g.H * 0.62));
+  check("none over the status text", g.items.every(L => !(L.x < bx + 612 && L.y < by + 184)), "status block is the top left 612 x 184");
+  await page.mouse.move(40, 300); await wait(3600);
+  await page.screenshot({path: path.join(outDir, "verify-words.png")});
+
+  await put("wordsKind", "notes"); await wait(4200);          // let the earlier labels fade out first
+  g = await gather(2500);
+  check("\"note names\" shows only note names, in イロハ", g.items.length >= 2 && g.items.every(L => NOTE.test(L.txt)), g.items.slice(0, 6).map(L => L.txt).join("  "));
+  await put("wordsKind", "words"); await wait(4200);
+  g = await gather(2500);
+  check("\"words\" shows no note names", g.items.length >= 2 && g.items.every(L => !NOTE.test(L.txt)), g.items.slice(0, 6).map(L => L.txt).join("  "));
+
+  await put("wordsKind", "both"); await put("frameShape", "oval"); await put("statusOn", false); await wait(4200);
+  g = await gather(3000);
+  const rx = g.W / 2 - bx, ry = g.H / 2 - by;
+  check("on an oval, every label is inside the oval", g.items.length >= 4 && g.items.every(L => [[L.x, L.y], [L.x + L.w, L.y], [L.x, L.y + L.h], [L.x + L.w, L.y + L.h]].every(([x, y]) => Math.pow((x - g.W / 2) / rx, 2) + Math.pow((y - g.H / 2) / ry, 2) < 1)), g.items.length + " labels");
+  await page.screenshot({path: path.join(outDir, "verify-words-oval.png")});
+
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.keyboard.press("j"); await wait(200);
+  check("J turns it off and clears the screen", (await page.evaluate(() => window.__scv.wordsState().length)) === 0 && !(await page.evaluate(() => document.getElementById("wordsOn").checked)));
+  g = await gather(1500);
+  check("and nothing appears while it is off", g.items.length === 0);
+  await put("wordsOn", true); await put("frameShape", "rect"); await put("frameStyle", "off"); await put("statusOn", true); await put("wordsAmount", 2);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

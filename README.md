@@ -45,6 +45,7 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `V` | Next video clip |
 | `S` | Graph on/off |
 | `T` | Status text on/off (input, preset, clip name, time, level, hit pads) |
+| `J` | Japanese text over the picture on/off |
 | `G` | Switch graph style: LED bars or spectrum curve |
 | `M` | MilkDrop layer on/off |
 | `C` | Beat cuts on/off |
@@ -125,6 +126,13 @@ cannot feed back. Only the test track plays out loud.
   a bright centre line that flares on hits, and falling peak markers. One checkbox turns
   it off for a plainer look or a slower machine. The glow is built from a few wide, faint
   strokes, not `shadowBlur`.
+- **Japanese text**: small labels appear at random spots inside the picture, a few on each
+  kick, flash white and fade, in the style of old MIDI player screens. Some are note names
+  read from the music as it plays (in イロハ names like ハ-2 or ニ#4, placed left to right
+  by pitch), the rest are words in kanji and katakana to do with sound, now and then with
+  a live number. They keep clear of the status text and the graph and stay inside an oval
+  or blob. Choose what it shows, how many per kick, and the size. Off by default when your
+  system asks for reduced motion.
 - **Graph on an oval or blob**: a rectangular graph looks wrong on a round picture, so
   there the graph is the spectrum curve as a closed line just inside the edge, with the
   two strongest notes written beside it. It follows the blob as it moves. There are no LED
@@ -198,6 +206,7 @@ src/
     clips.js            video playlist on two stacked videos, crossfade, cuts, loop regions
     folder.js           Open folder, and remembering it between launches
     frame.js            the border drawn over the edges of the picture
+    words.js            Japanese text that appears over the picture on kicks
     presets.js          MilkDrop layer and preset list
     hud.js              spectrum analysis and graph drawing
     ui.js               control bindings, drawer, hotkeys

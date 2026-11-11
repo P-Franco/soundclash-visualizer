@@ -12,6 +12,7 @@ import { sizeCanvases } from "./stage.js";
 import { initZoneEditor } from "./zone-editor.js";
 import { initFolder } from "./folder.js";
 import { drawFrame, frameState } from "./frame.js";
+import { drawWords, wordsState } from "./words.js";
 
 /* Called once audio is flowing (live input opened or a test track chosen). */
 function begin(){
@@ -39,6 +40,7 @@ function frame(now){
   dimEl.style.opacity = (S.baseDim * (1 - 0.8*k)).toFixed(3);
   drawFrame(now);
   drawHud(now);
+  drawWords(now);
 }
 
 initSettings();
@@ -51,4 +53,4 @@ initPanel();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {clips, addClips, clipState, presetState, frameState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};
+window.__scv = {clips, addClips, clipState, presetState, frameState, wordsState, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

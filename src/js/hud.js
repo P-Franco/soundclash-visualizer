@@ -29,12 +29,12 @@ let fd, td;
 export const labels = [{x:0,y:0,f:0,a:0,txt:"",hz:""},{x:0,y:0,f:0,a:0,txt:"",hz:""}];
 const NOTE_EN = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 const NOTE_JP = ["ハ","ハ#","ニ","ニ#","ホ","ヘ","ヘ#","ト","ト#","イ","イ#","ロ"];
-function noteName(f){
+export function noteName(f, jp = S.jp){
   const m = Math.round(69 + 12*Math.log2(f/440)); if(!isFinite(m)) return "";
   const n = ((m % 12) + 12) % 12, o = Math.floor(m/12) - 1;
-  return S.jp ? NOTE_JP[n] + "-" + o : NOTE_EN[n] + o;
+  return jp ? NOTE_JP[n] + "-" + o : NOTE_EN[n] + o;
 }
-const fAt = i => F0 * Math.pow(F1/F0, i/(N-1));
+export const fAt = i => F0 * Math.pow(F1/F0, i/(N-1));
 for(let b=0;b<=NB;b++) barEdge[b] = fAt(b * N / NB);
 function fmtTime(ms){ const s = ms/1000, m = Math.floor(s/60); return String(m).padStart(2,"0") + ":" + (s - m*60).toFixed(2).padStart(5,"0"); }
 function clipText(s, n){ return s.length > n ? s.slice(0, n-1) + "…" : s; }

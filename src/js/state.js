@@ -6,6 +6,10 @@ export const S = {
   statusOn: true,     // status text visible (input, preset, clip, time, level, hit pads)
   glow: true,         // soft glow and extra detail on the bars (graph and border)
   fx: true,           // sparks and ripples from the oval or blob on each kick
+  wordsOn: true,      // Japanese text over the picture, on the kick
+  wordsKind: "both",  // both | notes | words
+  wordsAmount: 2,     // labels per kick
+  wordsSize: 15,      // text size, in px on a 1280 wide screen
   jp: true,           // Japanese labels and note names
   locked: false,      // MilkDrop preset lock (stops auto change)
   cycleSec: 30,       // MilkDrop auto change interval
