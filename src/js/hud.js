@@ -2,7 +2,7 @@
    Performance notes: target is 60 fps at 1080p. Keep shadowBlur off for anything drawn per bar. */
 import { hud } from "./dom.js";
 import { S } from "./state.js";
-import { L as LOOK } from "./look.js";
+import { L as LOOK, rectGraph } from "./look.js";
 import { ctx, analyser } from "./audio.js";
 import { DET } from "./detect.js";
 import { presetNames, presetIdx, isStarred } from "./presets.js";
@@ -93,7 +93,7 @@ export function drawHud(now){
   /* Where the border is and how much of the graph shows come from the look (look.js); in show mode both
      slide. On a round picture the graph is drawn by frame.js, curved to fit, so this rectangular one
      fades out as the picture rounds off. Nothing rectangular goes on a round picture. */
-  const curved = LOOK.sq < 0.5, ga = LOOK.graph * Math.max(0, 2 * LOOK.sq - 1), graphOn = ga > 0.004;
+  const curved = LOOK.sq < 0.5, ga = LOOK.graph * rectGraph(LOOK.sq), graphOn = ga > 0.004;
   if(!graphOn && !S.statusOn) return;                      // the graph and the status text are separate switches
   /* everything here is laid out inside the border; on a round picture, inside the largest rectangle that fits it */
   const bxp = Math.round(W0 * LOOK.x / 100), byp = Math.round(H0 * LOOK.y / 100);

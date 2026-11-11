@@ -789,7 +789,12 @@ async function showTests(page){
   const ups = {};
   plan.rows.forEach((p, k) => { if(p.g && !(k && plan.rows[k-1].g)){ const key = p.shape + " " + (p.shape === "rect" ? p.st : "curve"); ups[key] = (ups[key] || 0) + 1; } });
   check("the graph comes up at least twice on every shape, and on the rectangle both styles do", ups["rect bars"] >= 2 && ups["rect curve"] >= 2 && ups["oval curve"] >= 2 && ups["blob curve"] >= 2, Object.entries(ups).map(([k, v]) => k + " x" + v).join(", "));
-  check("the graph is out of sight while a border is changing", plan.clear);
+  /* how long the graph is ever asked to be away, anywhere in the loop (the end of the loop runs into its start) */
+  let longest = 0, run = 0;
+  for(const r of plan.rows.concat(plan.rows)){ run = r.g ? 0 : run + 1; if(run > longest) longest = run; }
+  const upShare = plan.rows.filter(r => r.g).length / plan.rows.length;
+  check("no long gap between graphs anywhere in the show", longest * 0.25 <= SHOW.gap + 0.3, "longest gap " + (longest * 0.25).toFixed(2) + " s; the graph is up " + Math.round(upShare * 100) + "% of the time at this test's short scenes");
+  check("the graph stays up while the border changes", plan.rows.some((r, k) => k > 0 && plan.rows[k-1].i !== r.i && r.g === 1));
 
   /* one border turning into the next: the end of the rectangle scene into the oval */
   const first = SHOW.scenes[0].length * LEN;
@@ -799,17 +804,22 @@ async function showTests(page){
   const between = sq.filter(v => v > 0.05 && v < 0.95).length, step = Math.max(...sq.map((v, k) => k ? Math.abs(v - sq[k-1]) : 0));
   check("a border turns into the next gradually: the rectangle rounds off into the oval", between >= 20 && step < 0.12 && sq.every((v, k) => !k || v <= sq[k-1] + 1e-9) && sq[sq.length - 1] < 0.1, between + " in-between frames, biggest step " + step.toFixed(3));
   check("and the widths glide with it", ys.filter(v => v > 10.3 && v < 14.7).length >= 10 && ys[ys.length - 1] < 10.6, "top and bottom from 15% to " + ys[ys.length - 1].toFixed(1) + "%");
-  await settle(first - 0.3); await wait(650);
+  await settle(first - 0.3); await wait(1150);
   await page.screenshot({path: path.join(outDir, "verify-show-morph.png")});
+  await wait(1600);
+  const after = await look();
+  check("the curve is already up on the oval a few seconds into the change", after.graph > 0.9 && after.sq < 0.2, "graph " + after.graph.toFixed(2) + " with the picture " + Math.round((1 - after.sq) * 100) + "% rounded");
 
   /* the graph fading in: first slot of the rectangle scene, LED bars */
   const upAt = style => plan.rows.findIndex(r => r.i === 0 && r.g && r.st === style) * 0.25;     // when that graph first comes up, from the schedule
   const want = SHOW.scenes[0].graphs;
-  await settle(upAt(want[0]) - 0.35);
-  const g = (await follow(2600)).map(r => r[2]);
-  /* at this test's 10 s scenes the graph is only up for a couple of seconds, so look at how high it got, not where it ended */
-  check("the graph fades in rather than popping", g[0] < 0.05 && g.filter(v => v > 0.05 && v < 0.95).length >= 10 && Math.max(...g) > 0.8, "from " + g[0].toFixed(2) + " up to " + Math.max(...g).toFixed(2));
-  const a = await settle(upAt(want[0]) + 0.4), b = await settle(upAt(want[1]) + 0.4);
+  await settle(upAt(want[1]) - 1.6);                       // just before LED bars hand over to the curve
+  const g = (await follow(3200)).map(r => r[2]);
+  const low = g.filter(v => v < 0.1).length, firstLow = g.findIndex(v => v < 0.5), lastLow = g.length - 1 - g.slice().reverse().findIndex(v => v < 0.5);
+  check("one graph hands over to the next in about a second", g[0] > 0.9 && low >= 3 && low <= 75 && g[g.length - 1] > 0.9, "under 10% for " + low + " frames (about " + (low / 60).toFixed(1) + " s), half-down to half-up in " + ((lastLow - firstLow) / 60).toFixed(1) + " s");
+  const up = g.slice(g.indexOf(Math.min(...g)));           // from the bottom of the dip onward
+  check("and it fades rather than popping", up.filter(v => v > 0.05 && v < 0.95).length >= 8 && Math.max(...g.map((v, k) => k ? Math.abs(v - g[k-1]) : 0)) < 0.25, up.filter(v => v > 0.05 && v < 0.95).length + " in-between frames on the way back up");
+  const a = await settle(upAt(want[0]) + 0.6), b = await settle(upAt(want[1]) + 0.6);
   check("the rectangle shows LED bars, then the spectrum curve", a.graph === 1 && a.gstyle === SHOW.scenes[0].graphs[0] && b.graph === 1 && b.gstyle === SHOW.scenes[0].graphs[1], a.gstyle + " then " + b.gstyle);
 
   /* controls */

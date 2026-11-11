@@ -15,7 +15,7 @@
    No shadowBlur anywhere: this runs every frame. Glow is built from a few wide, faint strokes instead. */
 import { frameCv } from "./dom.js";
 import { S } from "./state.js";
-import { L } from "./look.js";
+import { L, ringGraph } from "./look.js";
 import { DET, onHit } from "./detect.js";
 import { barV, barCap, barGlow, NB, N, cur, hist, labels } from "./hud.js";
 
@@ -253,7 +253,15 @@ let ptx = 0, pty = 0;
 function inPoint(cx, cy, rx, ry, c, s, th, inset){
   const m = edgeAt(th);
   rim(c, s, rx, ry);
-  ptx = cx + rx * m * ux - unx * inset; pty = cy + ry * m * uy - uny * inset;
+  let nx = unx, ny = uny;
+  if(shapeE !== 1){
+    /* On a squared-off shape the true "inward" swings round sharply at the corners, which makes the
+       curve spike there. While the shape is square-ish, lean toward the centre of the picture instead. */
+    const px = rx * ux, py = ry * uy, k = 1 / (Math.sqrt(px * px + py * py) || 1), w = Math.min(1, L.sq * 2);
+    nx = nx * (1 - w) + px * k * w; ny = ny * (1 - w) + py * k * w;
+    const q = 1 / (Math.sqrt(nx * nx + ny * ny) || 1); nx *= q; ny *= q;
+  }
+  ptx = cx + rx * m * ux - nx * inset; pty = cy + ry * m * uy - ny * inset;
 }
 /* adds one closed loop to the current path: up the right side from the lows to the highs, back down the left */
 function loop(arr, cx, cy, rx, ry, gap, depth){
@@ -333,7 +341,7 @@ export function drawFrame(now){
   const plainRect = L.sq === 1 && L.blob === 0;                        // settled on a rectangle: the cheap path
   const busy = !plainRect && (ripples.length > 0 || sparksAlive > 0);
   const round = (1 - L.sq) * (1 - L.sq);                               // how much of the round-picture extras apply
-  const graphA = L.graph * Math.max(0, 1 - 2 * L.sq);                  // the curved graph is drawn on this canvas
+  const graphA = L.graph * ringGraph(L.sq);                            // the curved graph is drawn on this canvas
   if(!changed && !busy && L.bars === 0 && L.pulse === 0 && L.blob === 0 && graphA === 0) return;   // nothing moves: keep what is drawn
   if(busy) drawn = "";                                                // repaint once more after the last spark has gone
   const lw = Math.max(1, Math.round(W / 960)), kick = DET[0].env * L.pulse;

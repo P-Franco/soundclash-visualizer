@@ -50,11 +50,20 @@ export function stepLook(now, dt){
     if(Math.abs(d) < (key === "x" || key === "y" ? 0.02 : 0.002)) L[key] = T[key];
     else { L[key] += d * k; moving = true; }
   }
-  const dg = T.graph - L.graph;
-  if(Math.abs(dg) < 0.004) L.graph = T.graph; else L.graph += dg * kg;
-  if(L.graph < 0.02) L.gstyle = T.gstyle;
+  /* The graph. Its style only changes while it is out of sight, so a change of style first takes the
+     graph down, swaps, and brings it straight back up: one graph never snaps into another. */
+  if(L.gstyle !== T.gstyle && L.graph < 0.02) L.gstyle = T.gstyle;
+  const goal = L.gstyle !== T.gstyle ? 0 : T.graph, dg = goal - L.graph;
+  if(Math.abs(dg) < 0.004) L.graph = goal; else L.graph += dg * kg;
   L.moving = moving;
 }
+
+/* Which graph shows for a given squareness. A rectangle has the flat graph along the bottom, a round
+   picture has the curve round the inside of its edge. In between, the two overlap and dissolve into
+   each other, so the graph never has to go away while the border changes shape. */
+const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+export const rectGraph = sq => smooth(0.35, 0.75, sq);
+export const ringGraph = sq => 1 - smooth(0.25, 0.65, sq);
 
 /* Jump straight to the target on the next frame (used when a test wants a settled picture). */
 export function snapLook(){ snap = true; }

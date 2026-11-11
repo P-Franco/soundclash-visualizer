@@ -9,15 +9,17 @@
      style    "solid" | "bars" | "pulse"     the border style ("off" works too: no border)
      x, y     border width, percent of the screen: x = left and right, y = top and bottom
      length   how long it lasts, in scene lengths (the Scene length slider sets one length in seconds)
-     graphs   which graph styles appear during the scene, in order. Each one fades in, stays, and
-              fades out before the next. "bars" = LED bars, "curve" = spectrum curve. A round picture
-              only has the curve (drawn round the inside of its edge), so "bars" shows the curve there. */
+     graphs   which graph styles appear during the scene, in order. A graph is up nearly all the time:
+              each one stays until a quick dip at the end of its turn, where the next takes over.
+              "bars" = LED bars, "curve" = spectrum curve. A round picture only has the curve (drawn
+              round the inside of its edge), so "bars" shows the curve there. */
 import { S } from "./state.js";
 
 export const SHOW = {
   zoom: 1,          // video zoom for the whole show: 1 = 100%
   morph: 3,         // seconds one border takes to turn into the next
-  fade: 1.5,        // seconds the graph takes to fade in or out
+  fade: 0.5,        // seconds the graph takes to fade in or out
+  gap: 0.9,         // seconds between one graph going down and the next coming up: the only time no graph shows
   scenes: [
     {shape: "rect", style: "solid", x: 14, y: 15, length: 2, graphs: ["bars", "curve", "bars", "curve"]},
     {shape: "oval", style: "solid", x: 14, y: 10, length: 1, graphs: ["curve"]},
@@ -44,15 +46,12 @@ export function showAt(seconds){
   const s = sc[i], n = s.graphs ? s.graphs.length : 0;
   let graph = 0, gstyle = "curve";
   if(n){
-    /* The start of a scene belongs to the border: it is still turning into this scene's shape, and the
-       graph stays out of sight until that is done. The rest is cut into one slot per graph. A graph
-       comes up a little way into its slot and goes down early enough to have faded before the next. */
-    const lead = SHOW.morph + 0.5, slot = (s.length * unit - lead) / n;
-    if(t >= lead && slot > 0){
-      const j = Math.min(n - 1, Math.floor((t - lead) / slot)), v = t - lead - j * slot;
-      gstyle = s.graphs[j];
-      graph = v > slot * 0.12 && v < slot - Math.max(slot * 0.2, SHOW.fade + 0.3) ? 1 : 0;
-    }else gstyle = s.graphs[0];
+    /* The scene is cut into one slot per graph. A graph is up for its whole slot except a short dip at
+       the very end, where it hands over to the next one. That dip is the only time no graph shows.
+       The graph stays up while the border changes: it follows the outline as it moves, and the flat
+       graph dissolves into the curved one as the picture rounds off (see rectGraph and ringGraph in look.js). */
+    const slot = s.length * unit / n, j = Math.min(n - 1, Math.floor(t / slot)), v = t - j * slot;
+    gstyle = s.graphs[j]; graph = v < slot - SHOW.gap ? 1 : 0;
   }
   return {index: i, scene: s, graph, gstyle};
 }
