@@ -676,6 +676,8 @@ async function folderTests(page){
 async function frameTests(page){
   section("border");
   await ensureClips(page);
+  /* these checks read pixels back; the Japanese text draws on the same canvas, so it is off for the duration */
+  await page.evaluate(() => { const el = document.getElementById("wordsOn"); if(el){ el.checked = false; el.dispatchEvent(new Event("change")); } });
   const set = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id); el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
   const wait = ms => page.waitForTimeout(ms);
   /* read the border canvas: alpha in the middle and in a corner, how many different colours run along the top
@@ -716,16 +718,14 @@ async function frameTests(page){
   a = await look();
   check("solid: the edges are covered and the middle is clear", a.corner[3] === 255 && a.corner[0] < 30 && a.mid === 0, "corner rgba " + a.corner.join(","));
 
-  await set("frameColor", "rainbow"); await set("frameStyle", "bars"); await wait(400);
+  await set("frameStyle", "bars"); await wait(400);
   a = await look(); await wait(300); const b = await look();
-  check("colour bars: several colours along the edge", a.hues >= 4 && a.mid === 0 && a.corner[3] === 255, a.hues + " colour groups");
-  check("colour bars move with the music", a.sum !== b.sum);
+  check("bars: drawn along the edge, all in the app's red to pink, nothing in the middle", a.redOnly && a.hues >= 1 && a.mid === 0 && a.corner[3] === 255, a.hues + " hue step(s)");
+  check("bars move with the music", a.sum !== b.sum);
+  check("there is no Colours option any more", await page.evaluate(() => document.getElementById("frameColor") === null));
   await page.mouse.move(40, 300); await wait(3800);                 // let the drawer slide away for the picture
   await page.screenshot({path: path.join(outDir, "verify-border.png")});
 
-  await set("frameColor", "app"); await wait(300);
-  a = await look();
-  check("red bars: every bar is in the red to pink range", a.redOnly && a.hues >= 1, a.hues + " hue step(s)");
 
   await set("frameStyle", "pulse"); await wait(200);
   const lit = await page.evaluate(() => new Promise(res => { const c = document.getElementById("frame"), g = c.getContext("2d"); let n = 0, max = 0;
@@ -734,7 +734,7 @@ async function frameTests(page){
 
   /* shapes: border widths are 8% and 10% here */
   await tick("hudOn", false);                                  // the bare shape first, without the graph
-  await set("frameColor", "rainbow"); await set("frameStyle", "solid"); await set("frameShape", "oval"); await wait(250);
+  await set("frameStyle", "solid"); await set("frameShape", "oval"); await wait(250);
   const oval = await page.evaluate(() => {
     const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height, bx = Math.round(W * 0.08), by = Math.round(H * 0.10);
     const px = (x, y) => Array.from(g.getImageData(Math.round(x), Math.round(y), 1, 1).data);
@@ -765,7 +765,7 @@ async function frameTests(page){
       const row = g.getImageData(Math.round(W / 2 - W * 0.06), H - by + Math.round(H * 0.02), Math.round(W * 0.12), 1).data;
       for(let i = 0; i < row.length; i += 4){ const sat = Math.max(row[i], row[i+1], row[i+2]) - Math.min(row[i], row[i+1], row[i+2]); if(sat > best) best = sat; }
       if(++n < 70) requestAnimationFrame(t); else res(best); }; t(); }));
-  check("oval: the colour bars stand around the oval", ring > 100, "colour strength " + ring + " just below the oval");
+  check("oval: the bars stand around the oval", ring > 100, "colour strength " + ring + " just below the oval");
 
   await set("frameShape", "blob"); await wait(300);
   const blob = await page.evaluate(() => new Promise(res => {
@@ -814,6 +814,7 @@ async function frameTests(page){
   check("B steps through the border styles", seen.join(" ") === "solid bars pulse off", seen.join(" "));
   check("the border style is saved", await page.evaluate(() => localStorage.getItem("scv_frameStyle")) === "off");
   await tick("statusOn", true);
+  await page.evaluate(() => { const el = document.getElementById("wordsOn"); if(el){ el.checked = true; el.dispatchEvent(new Event("change")); } });
 }
 
 /* ---------- preset packs and favourites ---------- */
@@ -874,19 +875,11 @@ async function controlTests(page){
   check("and appear when beat cuts are turned on", all(await on(["cutMode", "cutEvery", "cutGap"])));
 
   await put("frameStyle", "off");
-  check("border off: only the style and the zoom are left", none(await on(["frameShape", "fx", "frameColor", "frameX", "frameY"])) && all(await on(["frameStyle", "zoom"])));
+  check("border off: only the style and the zoom are left", none(await on(["frameShape", "fx", "frameX", "frameY"])) && all(await on(["frameStyle", "zoom"])));
   await put("frameShape", "rect"); await put("frameStyle", "solid");
-  check("solid rectangle: no Colours and no sparks, nothing there to colour", none(await on(["frameColor", "fx"])) && all(await on(["frameShape", "frameX", "frameY"])));
-  await put("frameStyle", "pulse");
-  check("pulse on a rectangle: Colours is back", all(await on(["frameColor"])) && none(await on(["fx"])));
-  await put("frameColor", "rainbow"); await page.waitForTimeout(100);
-  const flash = await page.evaluate(() => new Promise(res => { const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height; const hues = new Set(); let n = 0;
-    const t = () => { for(const [x, y] of [[W >> 1, 3], [3, H >> 1], [W >> 1, H - 4], [W - 4, H >> 1]]){ const p = g.getImageData(x, y, 1, 1).data, M = Math.max(p[0], p[1], p[2]), d = M - Math.min(p[0], p[1], p[2]);
-        if(d > 50){ let h = M === p[0] ? ((p[1] - p[2]) / d) % 6 : M === p[1] ? (p[2] - p[0]) / d + 2 : (p[0] - p[1]) / d + 4; hues.add(Math.floor(((h * 60 + 360) % 360) / 60)); } }
-      if(++n < 90) requestAnimationFrame(t); else res(hues.size); }; t(); }));
-  check("and it changes the pulse: rainbow flashes in several colours round the border", flash >= 3, flash + " colour groups on the four sides");
+  check("rectangle: no sparks option (they come from the oval or blob)", none(await on(["fx"])) && all(await on(["frameShape", "frameX", "frameY"])));
   await put("frameStyle", "solid"); await put("frameShape", "oval");
-  check("solid oval: Colours and sparks both apply", all(await on(["frameColor", "fx"])));
+  check("oval: the sparks option appears", all(await on(["fx"])));
 
   await put("mdOn", false);
   check("MilkDrop off: its preset and blend controls are hidden", none(await on(["preset", "rand", "lock", "starOnly", "starList", "cycle", "op", "blend"])) && all(await on(["mdOn"])));

@@ -115,8 +115,7 @@ cannot feed back. Only the test track plays out loud.
   `butterchurn-presets` package. Star the ones you like (`K` or the Star button), then
   optionally limit auto change to starred presets, or show only starred ones in the list.
 - The drawer only shows controls that do something in the current setup. Turn beat cuts
-  on and their settings appear; pick a border style that has no colour and the Colours
-  list goes away. Hidden controls keep their values.
+  on and their settings appear; pick the oval or blob and the sparks option appears. Hidden controls keep their values.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
 - **Open folder**: point at a folder and it pulls in every video inside, subfolders too,
@@ -125,8 +124,8 @@ cannot feed back. Only the test track plays out loud.
   Nothing is copied or uploaded; the app only reads the files in place.
 - **Border**: clips come with all sorts of borders baked in. The app can draw its own
   border over the edges of the picture so every clip looks the same. Set the left/right
-  and top/bottom widths just wide enough to hide what is underneath. Styles: solid, colour
-  bars that move with the music (rainbow or the app's red), and a pulse on the kick. The
+  and top/bottom widths just wide enough to hide what is underneath. Styles: solid, bars
+  that move with the music, and a pulse on the kick. The
   graph and status text move inside the border. Off by default.
 - **Glow and detail**: bars in the graph and in the border get a soft glow, LED segments,
   a bright centre line that flares on hits, and falling peak markers. One checkbox turns
@@ -142,19 +141,19 @@ cannot feed back. Only the test track plays out loud.
 - **Graph on an oval or blob**: a rectangular graph looks wrong on a round picture, so
   there the graph is the spectrum curve as a closed line just inside the edge, with the
   two strongest notes written beside it. It follows the blob as it moves. There are no LED
-  bars inside the shape: the colour bars outside it are the only bars. The status text
+  bars inside the shape: the bars outside it are the only bars. The status text
   loses its dark panel there too. The rectangular graphs only appear on a rectangular
   picture, and the graph style list is hidden when there is nothing to choose.
 - **Sparks and ripples**: with the oval or blob, each kick sends a faint ring spreading out
-  from the outline and throws a handful of sparks. The outline itself is drawn in the same
-  rainbow as the bars, and a soft dark rim just inside the edge gives the picture depth.
+  from the outline and throws a handful of sparks. A soft dark rim just inside the edge
+  gives the picture depth.
   The blob also breathes with the kick, lifts into broad lobes on a snare, and shimmers on
   hats. One checkbox turns the sparks and ripples off; it starts off when your system asks
   for reduced motion.
 - **Shape of the picture**: everything outside the picture is pure black, so a projector
   shows only the shape and not its own rectangle. The picture can be a rectangle, an oval,
   or a blob: an oval whose outline drifts slowly and bulges out in a different direction
-  on each kick. With the oval and the blob, the colour bars stand all the way round the
+  on each kick. With the oval and the blob, the bars stand all the way round the
   outline. The blob grows into the border, so give the border some width.
 - **Video zoom**: enlarges the picture up to 200% so a clip's own border falls off the
   edge of the screen. Use it alone, or with the border to cover whatever is left.

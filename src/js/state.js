@@ -27,7 +27,6 @@ export const S = {
   cutGap: 4,          // minimum seconds between cuts
   frameStyle: "off",  // border: off | solid | bars | pulse
   frameShape: "rect", // shape of the picture inside the border: rect | oval | blob
-  frameColor: "rainbow", // colour of the bar border: rainbow | app
   frameX: 6,          // border width at the left and right, percent of the screen width
   frameY: 6,          // border height at the top and bottom, percent of the screen height
   zoom: 1,            // video zoom, 1 to 2: enlarges the picture so a clip's own border falls off the screen

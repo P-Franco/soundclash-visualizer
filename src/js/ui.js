@@ -22,7 +22,6 @@ function tidyControls(){
   showIf(S.wordsOn, "wordsKind", "wordsAmount", "wordsSize");
   showIf(border, "frameShape", "frameX", "frameY");
   showIf(round, "fx");                                                // sparks and ripples come from the oval or blob
-  showIf(S.frameStyle === "bars" || S.frameStyle === "pulse" || round, "frameColor");   // a plain solid rectangle has nothing to colour
   showIf(S.mdOn, "preset", "rand", "lock", "starOnly", "starList", "cycle", "op", "blend");
   showIf(S.hudOn && !round, "graph");                                 // an oval or blob has one graph, the curve: nothing to choose
   showIf(S.statusOn || (S.hudOn && (round || S.graph === "curve")), "jp");   // labels and note names: only where text is drawn
@@ -65,7 +64,6 @@ export function initSettings(){
   bindSelect("graph", "graph", v => { S.graph = v; });
   bindSelect("frameStyle", "frameStyle", v => { S.frameStyle = v; });
   bindSelect("frameShape", "frameShape", v => { S.frameShape = v; });
-  bindSelect("frameColor", "frameColor", v => { S.frameColor = v; });
   bindRange("frameX", "frameX", v => v + "%", v => { S.frameX = v; });
   bindRange("frameY", "frameY", v => v + "%", v => { S.frameY = v; });
   bindRange("zoom", "zoom", pct, v => { S.zoom = v; });
