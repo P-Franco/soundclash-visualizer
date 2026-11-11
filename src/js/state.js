@@ -2,7 +2,9 @@
    Settings are written by the control bindings in ui.js. Runtime values are written by the module that owns them. */
 export const S = {
   /* settings */
-  hudOn: true,        // graph and status text visible
+  hudOn: true,        // graph visible
+  statusOn: true,     // status text visible (input, preset, clip, time, level, hit pads)
+  glow: true,         // soft glow and extra detail on the bars (graph and border)
   jp: true,           // Japanese labels and note names
   locked: false,      // MilkDrop preset lock (stops auto change)
   cycleSec: 30,       // MilkDrop auto change interval

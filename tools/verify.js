@@ -634,15 +634,33 @@ async function frameTests(page){
     const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height;
     const px = (x, y) => Array.from(g.getImageData(x, y, 1, 1).data);
     const row = g.getImageData(0, 1, W, 1).data, hues = new Set(); let sum = 0;
-    for(let x = 0; x < W; x += 4){ const r = row[x*4], gg = row[x*4+1], b = row[x*4+2]; if(Math.max(r, gg, b) - Math.min(r, gg, b) > 60) hues.add((r > 128 ? 4 : 0) + (gg > 128 ? 2 : 0) + (b > 128 ? 1 : 0)); }
+    for(let x = 0; x < W; x += 4){ const r = row[x*4], gg = row[x*4+1], b = row[x*4+2]; const M = Math.max(r, gg, b), d = M - Math.min(r, gg, b);
+      if(d > 60){ let hue = M === r ? ((gg - b) / d) % 6 : M === gg ? (b - r) / d + 2 : (r - gg) / d + 4; hue = (hue * 60 + 360) % 360; hues.add(Math.floor(hue / 30)); } }   // hue in 30 degree steps
     const strip = g.getImageData(0, 0, W, Math.max(1, Math.round(H * 0.05))).data;
     for(let i = 0; i < strip.length; i += 16) sum = (sum + strip[i] * 7 + strip[i+1] * 3 + strip[i+2]) % 1000003;
-    return {mid: px(W >> 1, H >> 1)[3], corner: px(3, 3), hues: hues.size, sum, W, H};
+    return {mid: px(W >> 1, H >> 1)[3], corner: px(3, 3), hues: hues.size, redOnly: Array.from(hues).every(h => h === 0 || h >= 10), sum, W, H};
   });
 
   await set("frameStyle", "off"); await wait(150);
   let a = await look();
   check("off: nothing is drawn", a.mid === 0 && a.corner[3] === 0);
+
+  /* the status text has its own switch, separate from the graph */
+  const hudLook = () => page.evaluate(() => { const c = document.getElementById("hud"), g = c.getContext("2d"), W = c.width, H = c.height;
+    const any = (x, y, w, h) => { const d = g.getImageData(x, y, w, h).data; for(let i = 3; i < d.length; i += 4) if(d[i] > 0) return true; return false; };
+    return {status: any(20, 20, 200, 60), graph: any(40, H - 120, W - 80, 40)}; });
+  const tick = (id, on) => page.evaluate(({id, on}) => { const el = document.getElementById(id); el.checked = on; el.dispatchEvent(new Event("change")); }, {id, on});
+  await tick("hudOn", true); await tick("statusOn", true); await wait(120);
+  let h = await hudLook();
+  check("graph and status text both showing", h.status && h.graph);
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.keyboard.press("t"); await wait(120);
+  h = await hudLook();
+  check("T hides the status text and leaves the graph", !h.status && h.graph);
+  await tick("hudOn", false); await tick("statusOn", true); await wait(120);
+  h = await hudLook();
+  check("the graph can be hidden with the status text still showing", h.status && !h.graph);
+  await tick("hudOn", true); await tick("statusOn", false); await wait(120);
 
   await set("frameX", 8); await set("frameY", 10); await set("frameStyle", "solid"); await wait(150);
   a = await look();
@@ -657,7 +675,7 @@ async function frameTests(page){
 
   await set("frameColor", "app"); await wait(300);
   a = await look();
-  check("red bars: one colour family", a.hues <= 2 && a.hues >= 1, a.hues + " colour groups");
+  check("red bars: every bar is in the red to pink range", a.redOnly && a.hues >= 1, a.hues + " hue step(s)");
 
   await set("frameStyle", "pulse"); await wait(200);
   const lit = await page.evaluate(() => new Promise(res => { const c = document.getElementById("frame"), g = c.getContext("2d"); let n = 0, max = 0;
@@ -695,6 +713,10 @@ async function frameTests(page){
   check("blob: the outline keeps changing", blob.shapes >= 4, blob.shapes + " different outlines in 200 frames");
   check("blob: it bulges in different directions on different kicks", blob.sides >= 3, blob.sides + " of 6 directions in about 3 s");
   await page.screenshot({path: path.join(outDir, "verify-blob.png")});
+  await tick("glow", false); await wait(200);
+  const plain = await look();
+  await tick("glow", true); await wait(200);
+  check("glow can be switched off and on without breaking the border", plain.corner[3] === 255 && (await look()).corner[3] === 255 && await page.evaluate(() => localStorage.getItem("scv_glow")) === "1");
   await set("frameShape", "rect"); await set("frameStyle", "bars");
 
   /* video zoom: the box that holds both videos is scaled; the kick punch can add up to 5% on top */
@@ -713,6 +735,7 @@ async function frameTests(page){
   for(let i = 0; i < 4; i++){ await page.keyboard.press("b"); await wait(80); seen.push(await page.evaluate(() => document.getElementById("frameStyle").value)); }
   check("B steps through the border styles", seen.join(" ") === "solid bars pulse off", seen.join(" "));
   check("the border style is saved", await page.evaluate(() => localStorage.getItem("scv_frameStyle")) === "off");
+  await tick("statusOn", true);
 }
 
 /* ---------- preset packs and favourites ---------- */

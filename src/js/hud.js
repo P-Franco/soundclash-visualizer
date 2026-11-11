@@ -12,13 +12,13 @@ const hctx = hud.getContext("2d");
 /* ---------- spectrum readout ---------- */
 const N = 200, F0 = 40, F1 = 14000, DBMIN = -96, DBMAX = -22;
 const cur = new Float32Array(N), raw = new Float32Array(N), hist = [];
-export const NB = 56, barV = new Float32Array(NB);     // the bar levels are also drawn by the border (frame.js)
-const barCap = new Float32Array(NB), barPrev = new Float32Array(NB), barFlash = new Float32Array(NB),
+export const NB = 56, barV = new Float32Array(NB), barCap = new Float32Array(NB);   // bar levels and falling peaks, also drawn by the border (frame.js)
+const barPrev = new Float32Array(NB), barFlash = new Float32Array(NB),
       barLit = new Int16Array(NB), barG = new Float32Array(NB);
 
 /* A bar lights with a zone when any part of the bar's frequency span lies inside that zone. */
 const barEdge = new Float32Array(NB + 1);
-function barGlow(b){
+export function barGlow(b){
   const lo = barEdge[b], hi = barEdge[b+1]; let z = 0;
   for(let i=0;i<DET.length;i++){ const d = DET[i]; if(hi > d.lo && lo < d.hi && d.env > z) z = d.env; }
   return Math.min(1, Math.max(z, barFlash[b] * 0.7));
@@ -87,7 +87,7 @@ export function drawHud(now){
   const jp = S.jp;
   hctx.setTransform(1,0,0,1,0,0);
   hctx.clearRect(0,0,W0,H0);
-  if(!S.hudOn) return;
+  if(!S.hudOn && !S.statusOn) return;                      // the graph and the status text are separate switches
   /* with a border on, everything here is laid out inside it */
   let ox = 0, oy = 0;
   if(S.frameStyle !== "off"){
@@ -103,9 +103,14 @@ export function drawHud(now){
   const X = i => x0 + (x1-x0) * i/(N-1), Y = v => yB - v*hS;
   const fx = f => x0 + (x1-x0) * Math.log(f/F0)/Math.log(F1/F0);
 
-  hctx.shadowColor = "rgba(0,0,0,.85)"; hctx.shadowBlur = 6*s;
+  hctx.shadowColor = "rgba(0,0,0,.85)"; hctx.shadowBlur = 0;
+  if(S.hudOn){                                             // a soft dark fade behind the graph
+    const fade = hctx.createLinearGradient(0, yT - 40*s, 0, H); fade.addColorStop(0, "rgba(12,3,4,0)"); fade.addColorStop(1, "rgba(12,3,4,.7)");
+    hctx.fillStyle = fade; hctx.fillRect(0, yT - 40*s, W, H - yT + 40*s);
+  }
 
-  /* status text */
+  if(S.statusOn){
+  /* status text: input, preset, clip, time, level, hit pads */
   hctx.font = (17*s) + "px " + FONT; hctx.textBaseline = "top"; hctx.textAlign = "left";
   const cut = cutInfo();                                   // beat cuts armed: show the count toward the next cut
   const cutTxt = cut ? "  " + (jp ? "カット " : "CUT ") + String(cut.kicks).padStart(2,"0") + "/" + String(cut.every).padStart(2,"0") : "";
@@ -118,8 +123,6 @@ export function drawHud(now){
   const lx = 26*s, vx = lx + (jp ? 112 : 92)*s; let ly = 24*s;
   hctx.shadowBlur = 0;
   hctx.fillStyle = "rgba(12,3,4,.62)"; hctx.fillRect(12*s, 12*s, Math.min(W - 24*s, 600*s), 172*s);
-  const fade = hctx.createLinearGradient(0, yT - 40*s, 0, H); fade.addColorStop(0, "rgba(12,3,4,0)"); fade.addColorStop(1, "rgba(12,3,4,.7)");
-  hctx.fillStyle = fade; hctx.fillRect(0, yT - 40*s, W, H - yT + 40*s);
   hctx.shadowBlur = 6*s;
   for(const [k,v] of rows){ hctx.fillStyle = "#d9667e"; hctx.fillText(k, lx, ly); hctx.fillStyle = "#f3e9ea"; hctx.fillText(v, vx, ly); ly += 25*s; }
   /* level meter */
@@ -140,6 +143,8 @@ export function drawHud(now){
     hctx.fillStyle = d.env > 0.5 ? "#1a0508" : "#f3e9ea"; hctx.fillText(jp ? d.jp : d.en, px + pw/2, ly + 3*s, pw - 4*s);
   });
   hctx.textAlign = "left";
+  }
+  if(!S.hudOn){ hctx.shadowBlur = 0; return; }
 
   /* frequency grid */
   hctx.shadowBlur = 0;
@@ -160,6 +165,15 @@ export function drawHud(now){
       for(let j=n;j<SEG;j++) hctx.fillRect(x, yB - (j+1)*pitch + (pitch-sh), w, sh);
     }
     hctx.globalCompositeOperation = "lighter";
+    if(S.glow){
+      /* soft glow: two wider, faint columns behind each lit bar, added like light (no shadowBlur per bar) */
+      hctx.fillStyle = "rgba(217,102,126,.09)";
+      for(let b=0;b<NB;b++){
+        const n = barLit[b]; if(!n) continue; const x = x0 + b*bw + off;
+        hctx.fillRect(x - w*0.6, yB - (n+1)*pitch, w*2.2, (n+1)*pitch);
+        hctx.fillRect(x - w*0.2, yB - (n+0.4)*pitch, w*1.4, (n+0.4)*pitch);
+      }
+    }
     for(let b=0;b<NB;b++){
       const g = barG[b], n = barLit[b]; if(g < 0.04 || !n) continue;
       hctx.fillStyle = "rgba(255,150,175," + (0.32*g).toFixed(3) + ")";

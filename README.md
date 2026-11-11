@@ -43,7 +43,8 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `N` | Next MilkDrop preset |
 | `Space` | Lock the current preset (stops auto change) |
 | `V` | Next video clip |
-| `S` | Graph and status text on/off |
+| `S` | Graph on/off |
+| `T` | Status text on/off (input, preset, clip name, time, level, hit pads) |
 | `G` | Switch graph style: LED bars or spectrum curve |
 | `M` | MilkDrop layer on/off |
 | `C` | Beat cuts on/off |
@@ -117,6 +118,10 @@ cannot feed back. Only the test track plays out loud.
   and top/bottom widths just wide enough to hide what is underneath. Styles: solid, colour
   bars that move with the music (rainbow or the app's red), and a pulse on the kick. The
   graph and status text move inside the border. Off by default.
+- **Glow and detail**: bars in the graph and in the border get a soft glow, LED segments,
+  a bright centre line that flares on hits, and falling peak markers. One checkbox turns
+  it off for a plainer look or a slower machine. The glow is built from a few wide, faint
+  strokes, not `shadowBlur`.
 - **Shape of the picture**: everything outside the picture is pure black, so a projector
   shows only the shape and not its own rectangle. The picture can be a rectangle, an oval,
   or a blob: an oval whose outline drifts slowly and bulges out in a different direction

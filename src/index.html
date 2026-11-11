@@ -117,7 +117,9 @@
 
   <section>
     <h2>GRAPH</h2>
-    <label class="check"><input type="checkbox" id="hudOn" checked> Show graph and status text</label>
+    <label class="check"><input type="checkbox" id="hudOn" checked> Show the graph</label>
+    <label class="check"><input type="checkbox" id="statusOn" checked> Show the status text (input, clip name, time)</label>
+    <label class="check"><input type="checkbox" id="glow" checked> Soft glow and detail on the bars</label>
     <label><span>Graph style</span><select id="graph">
       <option value="bars">LED bars, light up on hits</option>
       <option value="curve">Spectrum curve with note labels</option></select></label>
@@ -134,7 +136,7 @@
 
   <section>
     <div class="row"><button id="fs">Fullscreen</button><button id="hide">Hide controls</button></div>
-    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>C</kbd> beat cuts on/off &nbsp;<kbd>I</kbd> <kbd>O</kbd> loop in/out &nbsp;<kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset</div>
+    <div class="keys"><kbd>F</kbd> fullscreen &nbsp;<kbd>H</kbd> controls &nbsp;<kbd>N</kbd> next preset &nbsp;<kbd>Space</kbd> lock preset<br><kbd>V</kbd> next clip &nbsp;<kbd>S</kbd> graph on/off &nbsp;<kbd>G</kbd> bars/curve &nbsp;<kbd>M</kbd> MilkDrop on/off<br><kbd>C</kbd> beat cuts on/off &nbsp;<kbd>I</kbd> <kbd>O</kbd> loop in/out &nbsp;<kbd>B</kbd> border style &nbsp;<kbd>K</kbd> star preset &nbsp;<kbd>T</kbd> status text on/off</div>
     <div class="keys">Visual engine: Butterchurn (MilkDrop for WebGL, MIT license) with its community preset packs.</div>
   </section>
 </aside>

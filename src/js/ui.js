@@ -27,6 +27,8 @@ export function initSettings(){
   bindRange("cutEvery", "cutEvery", v => v + (v === 1 ? " kick" : " kicks"), v => { S.cutEvery = v; });
   bindRange("cutGap", "cutGap", v => v.toFixed(1) + " s", v => { S.cutGap = v; });
   bindCheck("hudOn", "hud", v => { S.hudOn = v; });
+  bindCheck("statusOn", "status", v => { S.statusOn = v; });
+  bindCheck("glow", "glow", v => { S.glow = v; });
   bindCheck("jp", "jp", v => { S.jp = v; });
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
   bindRange("punch", "punch", pct, v => { S.punch = v; });
@@ -73,6 +75,7 @@ export function initPanel(){
     else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
     else if(k === "b"){ const el = $("frameStyle"); el.value = FRAME_STYLES[(FRAME_STYLES.indexOf(S.frameStyle) + 1) % FRAME_STYLES.length]; el.dispatchEvent(new Event("change")); }
     else if(k === "k") toggleStar();
+    else if(k === "t"){ $("statusOn").checked = !S.statusOn; $("statusOn").dispatchEvent(new Event("change")); }
     else if(k === "i") setRegionPoint("in");
     else if(k === "o") setRegionPoint("out");
     else if(k === " "){ e.preventDefault(); $("lock").checked = S.locked = !S.locked; }

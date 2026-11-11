@@ -8,11 +8,11 @@
 
    It has its own canvas, above the video and the MilkDrop layer and below the graph. The rectangle
    only paints its border strips. The oval and blob paint the whole canvas black and cut a hole in it.
-   No shadowBlur anywhere: this runs every frame. */
+   No shadowBlur anywhere: this runs every frame. Glow is built from a few wide, faint strokes instead. */
 import { frameCv } from "./dom.js";
 import { S } from "./state.js";
 import { DET, onHit } from "./detect.js";
-import { barV, NB } from "./hud.js";
+import { barV, barCap, barGlow, NB } from "./hud.js";
 
 const g = frameCv.getContext("2d");
 const BLACK = "#000", ROSE = "#d9667e", PALE = "#f3e9ea";
@@ -25,33 +25,85 @@ const barColor = (band, v) => S.frameColor !== "app" ? RAINBOW[band] : (v > 0.8 
 
 let drawn = "";      // what is on the canvas now, so a border that does not move is not repainted
 
+/* ---------- colour bars ---------- */
+/* Bars are laid out first (where each starts, which way it points, how far it may reach), then painted
+   in a few passes, so the canvas state changes a handful of times a frame instead of once per bar. */
+const MAXB = 240;
+const PX = new Float32Array(MAXB), PY = new Float32Array(MAXB), DX = new Float32Array(MAXB), DY = new Float32Array(MAXB),
+      WID = new Float32Array(MAXB), REACH = new Float32Array(MAXB), LVL = new Float32Array(MAXB), PEAK = new Float32Array(MAXB), HIT = new Float32Array(MAXB);
+const BAND = new Uint8Array(MAXB), DASH = [0, 0], NO_DASH = [];
+let count = 0;
+function put(x, y, dx, dy, width, reach, band, lvl, peak, hit){
+  if(count >= MAXB) return;
+  PX[count] = x; PY[count] = y; DX[count] = dx; DY[count] = dy; WID[count] = width; REACH[count] = reach;
+  BAND[count] = band; LVL[count] = lvl; PEAK[count] = peak; HIT[count] = hit; count++;
+}
+function line(i, from, to){
+  g.beginPath(); g.moveTo(PX[i] + DX[i] * from, PY[i] + DY[i] * from); g.lineTo(PX[i] + DX[i] * to, PY[i] + DY[i] * to); g.stroke();
+}
+function paintBars(){
+  const rich = S.glow;
+  if(rich){
+    /* 1. glow: two wide, faint, round-ended strokes under each bar, added like light: a broad dim one and a
+       tighter brighter one, so the light falls off softly. Quiet bars glow little; a zone hit flares it. */
+    g.globalCompositeOperation = "lighter"; g.lineCap = "round";
+    for(let i = 0; i < count; i++){
+      const a = 0.02 + 0.11 * LVL[i] + 0.2 * HIT[i], len = Math.max(2, LVL[i] * REACH[i]);
+      g.strokeStyle = barColor(BAND[i], LVL[i]);
+      g.globalAlpha = a * 0.55; g.lineWidth = WID[i] * 3.4; line(i, 0, len);
+      g.globalAlpha = a; g.lineWidth = WID[i] * 1.9; line(i, 0, len);
+    }
+    g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; g.lineCap = "butt";
+  }
+  /* 2. the bar itself, cut into LED segments when detail is on */
+  let lastW = -1;
+  for(let i = 0; i < count; i++){
+    if(rich && WID[i] !== lastW){ lastW = WID[i]; DASH[0] = Math.max(3, lastW * 0.45); DASH[1] = DASH[0] * 0.4; g.setLineDash(DASH); }
+    g.strokeStyle = barColor(BAND[i], LVL[i]); g.lineWidth = WID[i];
+    line(i, 0, Math.max(2, LVL[i] * REACH[i]));
+  }
+  if(!rich) return;
+  g.setLineDash(NO_DASH);
+  /* 3. a bright line down the middle of each bar, brighter on a hit */
+  g.strokeStyle = "#fff";
+  for(let i = 0; i < count; i++){
+    g.globalAlpha = 0.2 + 0.6 * HIT[i]; g.lineWidth = Math.max(1, WID[i] * 0.2);
+    line(i, 0, Math.max(2, LVL[i] * REACH[i]));
+  }
+  /* 4. a peak marker that hangs above the bar and falls back slowly */
+  g.globalAlpha = 0.75;
+  for(let i = 0; i < count; i++){
+    const at = Math.max(PEAK[i], LVL[i]) * REACH[i] + WID[i] * 0.4;
+    g.lineWidth = WID[i] * 0.8; line(i, at, at + Math.max(2, WID[i] * 0.2));
+  }
+  g.globalAlpha = 1;
+}
+
 /* ---------- rectangle ---------- */
 function strips(W, H, bx, by){
   if(by){ g.fillRect(0, 0, W, by); g.fillRect(0, H - by, W, by); }
   if(bx){ g.fillRect(0, by, bx, H - 2*by); g.fillRect(W - bx, by, bx, H - 2*by); }
 }
-
-/* Colour bars along the four edges. Each bar is one slice of the spectrum (the same levels the LED graph
-   shows) and grows from the edge of the screen toward the picture.
+const pair = (arr, band) => arr[band] > arr[band+1] ? arr[band] : arr[band+1];
+/* Bars along the four edges, growing from the edge of the screen toward the picture. Each is two
+   neighbouring slices of the spectrum (the same levels the LED graph shows).
    Top and bottom: lows in the middle, highs toward the corners. Sides: lows at the bottom. */
-function edgeBars(W, H, bx, by){
-  const half = NB / 2;
+function layoutEdges(W, H, bx, by){
+  const half = NB / 2; count = 0;
   if(by){
-    const pitch = W / NB, w = pitch * 0.74, off = (pitch - w) / 2;
+    const pitch = W / NB, w = pitch * 0.74;
     for(let p = 0; p < NB; p++){
-      const band = p < half ? (half - 1 - p) * 2 : (p - half) * 2;
-      const v = barV[band] > barV[band+1] ? barV[band] : barV[band+1], len = Math.max(2, v * by), x = p * pitch + off;
-      g.fillStyle = barColor(band, v);
-      g.fillRect(x, 0, w, len); g.fillRect(x, H - len, w, len);
+      const band = p < half ? (half - 1 - p) * 2 : (p - half) * 2, x = (p + 0.5) * pitch;
+      const lvl = pair(barV, band), peak = pair(barCap, band), hit = Math.max(barGlow(band), barGlow(band + 1));
+      put(x, 0, 0, 1, w, by, band, lvl, peak, hit); put(x, H, 0, -1, w, by, band, lvl, peak, hit);
     }
   }
   if(bx){
-    const top = by, room = H - 2*by, pitch = room / half, h = pitch * 0.74, off = (pitch - h) / 2;
+    const room = H - 2*by, pitch = room / half, h = pitch * 0.74;
     for(let q = 0; q < half; q++){
-      const band = q * 2;
-      const v = barV[band] > barV[band+1] ? barV[band] : barV[band+1], len = Math.max(2, v * bx), y = top + room - (q + 1) * pitch + off;
-      g.fillStyle = barColor(band, v);
-      g.fillRect(0, y, len, h); g.fillRect(W - len, y, len, h);
+      const band = q * 2, y = by + room - (q + 0.5) * pitch;
+      const lvl = pair(barV, band), peak = pair(barCap, band), hit = Math.max(barGlow(band), barGlow(band + 1));
+      put(0, y, 1, 0, h, bx, band, lvl, peak, hit); put(W, y, -1, 0, h, bx, band, lvl, peak, hit);
     }
   }
 }
@@ -107,20 +159,20 @@ function outline(cx, cy, rx, ry){
   }
   g.closePath();
 }
-/* one bar: a short line standing straight out from the outline at angle th */
-function ray(cx, cy, rx, ry, th, gap, len){
-  const c = Math.cos(th), s = Math.sin(th), m = edgeAt(th), x = cx + rx * m * c, y = cy + ry * m * s;
+/* Bars all the way round, each standing straight out from the outline: lows at the bottom, highs at
+   the top, the same on both sides. */
+function ringBar(cx, cy, rx, ry, th, gap, width, reach, band){
+  const c = Math.cos(th), s = Math.sin(th), m = edgeAt(th);
   let nx = c / rx, ny = s / ry; const k = 1 / Math.sqrt(nx * nx + ny * ny); nx *= k; ny *= k;
-  g.moveTo(x + nx * gap, y + ny * gap); g.lineTo(x + nx * (gap + len), y + ny * (gap + len));
+  put(cx + rx * m * c + nx * gap, cy + ry * m * s + ny * gap, nx, ny, width, reach, band, barV[band], barCap[band], barGlow(band));
 }
-/* Colour bars all the way round: lows at the bottom, highs at the top, the same on both sides. */
-function ringBars(cx, cy, rx, ry, reach, gap){
+function layoutRing(cx, cy, rx, ry, reach, gap){
   const around = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
-  g.lineWidth = Math.max(2, around / (2 * NB) * 0.62); g.lineCap = "butt";
+  const width = Math.max(2, around / (2 * NB) * 0.62);
+  count = 0;
   for(let j = 0; j < NB; j++){
-    const v = barV[j], len = Math.max(3, v * reach), th = Math.PI / 2 - (j + 0.5) * Math.PI / NB;
-    g.strokeStyle = barColor(j, v);
-    g.beginPath(); ray(cx, cy, rx, ry, th, gap, len); ray(cx, cy, rx, ry, Math.PI - th, gap, len); g.stroke();
+    const th = Math.PI / 2 - (j + 0.5) * Math.PI / NB;
+    ringBar(cx, cy, rx, ry, th, gap, width, reach, j); ringBar(cx, cy, rx, ry, Math.PI - th, gap, width, reach, j);
   }
 }
 
@@ -128,7 +180,7 @@ function ringBars(cx, cy, rx, ry, reach, gap){
 export function drawFrame(now){
   const W = frameCv.width, H = frameCv.height, style = S.frameStyle, shape = S.frameShape;
   const bx = style === "off" ? 0 : Math.round(W * S.frameX / 100), by = style === "off" ? 0 : Math.round(H * S.frameY / 100);
-  const key = [style, shape, bx, by, W, H, S.sizeGen].join("|"), changed = key !== drawn;
+  const key = [style, shape, bx, by, W, H, S.sizeGen, S.glow].join("|"), changed = key !== drawn;
   if(changed){ drawn = key; g.clearRect(0, 0, W, H); }
   if(style === "off") return;
   if(style === "solid" && shape !== "blob" && !changed) return;      // nothing moves: keep what is drawn
@@ -137,7 +189,7 @@ export function drawFrame(now){
   if(shape === "rect"){
     if(!bx && !by) return;
     g.fillStyle = BLACK; strips(W, H, bx, by);          // the opaque base is what hides the clip's own border
-    if(style === "bars") edgeBars(W, H, bx, by);
+    if(style === "bars"){ layoutEdges(W, H, bx, by); paintBars(); }
     else if(kick > 0.02){ g.fillStyle = "rgba(217,102,126," + (0.7 * kick).toFixed(3) + ")"; strips(W, H, bx, by); }
     /* a thin line where the border meets the picture */
     g.strokeStyle = "rgba(217,102,126,.6)"; g.lineWidth = lw;
@@ -152,8 +204,15 @@ export function drawFrame(now){
   outline(cx, cy, rx, ry);
   g.globalCompositeOperation = "destination-out"; g.fill();
   g.globalCompositeOperation = "source-over";
-  if(style === "bars") ringBars(cx, cy, rx, ry, Math.min(bx, by) || Math.min(W, H) * 0.04, lw * 3);
-  /* the outline itself: thin normally, swelling on the kick in pulse style */
+  if(style === "bars"){ layoutRing(cx, cy, rx, ry, Math.min(bx, by) || Math.min(W, H) * 0.04, lw * 3); paintBars(); }
+  /* the outline itself: a soft halo when glow is on, then a thin line that swells on the kick in pulse style */
+  outline(cx, cy, rx, ry);
+  if(S.glow){
+    g.globalCompositeOperation = "lighter";
+    g.strokeStyle = "rgba(217,102,126," + (0.09 + 0.2 * kick).toFixed(3) + ")"; g.lineWidth = lw * 12; g.stroke();
+    g.strokeStyle = "rgba(217,102,126," + (0.16 + 0.3 * kick).toFixed(3) + ")"; g.lineWidth = lw * 5; g.stroke();
+    g.globalCompositeOperation = "source-over";
+  }
   g.strokeStyle = "rgba(217,102,126," + (0.6 + 0.4 * kick).toFixed(3) + ")"; g.lineWidth = lw * (1 + 10 * kick);
-  outline(cx, cy, rx, ry); g.stroke();
+  g.stroke();
 }
