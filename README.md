@@ -24,7 +24,9 @@ Then open `dist/soundclash-visualizer.html` in Chrome or Edge.
 1. Click **Start with audio input** and allow the microphone when the browser asks.
    (It asks once per launch. The "microphone" permission covers line-in too.)
 2. Pick your input under **AUDIO IN**.
-3. Add video clips with **Add clips**, or drop files anywhere on the window.
+3. Click **Open folder** and pick the folder your clips live in. Every video inside it,
+   subfolders included, becomes the playlist. (**Add clips** adds single files, and you
+   can drop files or a folder anywhere on the window.)
 4. Press `F` for fullscreen and `H` to hide the controls.
 
 No input handy? **Test with an audio file** plays a local track through the speakers and
@@ -101,6 +103,10 @@ cannot feed back. Only the test track plays out loud.
   over the video, with a preset picker, auto change, strength and blend mode.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
+- **Open folder**: point at a folder and it pulls in every video inside, subfolders too,
+  sorted by path. In Chrome and Edge the folder is remembered: next launch it either opens
+  by itself or shows a one-click "Reopen" button, depending on what the browser allows.
+  Nothing is copied or uploaded; the app only reads the files in place.
 - **Loop region**: mark an in and an out point on a clip so only the good section plays.
   Drag the position slider to find the spot, then Set in / Set out (or `I` / `O`). Looping,
   crossfades and beat cuts all stay inside the region. Regions are remembered per file
@@ -196,6 +202,8 @@ clicks Start, and checks:
   each end-of-clip mode, a file that cannot be decoded, removing clips,
 - beat cuts: cut rate, the minimum gap, random-point mode, the single-clip fallback,
 - loop regions: setting, looping inside the region, coming back after a reload,
+- open folder: reading a folder tree (with a stand-in folder, since the native dialog
+  cannot be driven from a test), and with `--https` that it is remembered and reopened,
 - every hotkey,
 - that nothing was logged as a console error and nothing was requested over the network.
 

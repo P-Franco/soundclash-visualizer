@@ -26,7 +26,8 @@ let lastCut = 0;               // performance.now() of the last clip change of a
 let cuts = 0;                  // beat cuts made so far (for tests)
 
 const front = () => vids[cur], back = () => vids[1 - cur];
-const isVideo = f => f.type.startsWith("video/") || /\.(mp4|webm|mkv|mov|m4v)$/i.test(f.name);
+export const VIDEO_EXT = /\.(mp4|webm|mkv|mov|m4v)$/i;
+const isVideo = f => f.type.startsWith("video/") || VIDEO_EXT.test(f.name);
 const rate = () => parseFloat($("rate").value);
 function playable(){ let n = 0; for(let i = 0; i < clips.length; i++) if(!clips[i].bad) n++; return n; }
 
@@ -216,6 +217,14 @@ export function addClips(files){
   renderClips();
   if(clipIdx < 0 && clips.length) switchTo(0, 0);
   else replan();
+}
+
+/* Replace the whole playlist (Open folder). */
+export function setClips(files){
+  for(const c of clips) URL.revokeObjectURL(c.url);
+  clips.length = 0;
+  stopAll();
+  addClips(files);
 }
 
 export function playClip(i){

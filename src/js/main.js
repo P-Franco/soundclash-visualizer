@@ -10,6 +10,7 @@ import { analyse, drawHud } from "./hud.js";
 import { initSettings, initPanel, showPanel } from "./ui.js";
 import { sizeCanvases } from "./stage.js";
 import { initZoneEditor } from "./zone-editor.js";
+import { initFolder } from "./folder.js";
 
 /* Called once audio is flowing (live input opened or a test track chosen). */
 function begin(){
@@ -41,6 +42,7 @@ initSettings();
 initAudio(begin);
 initPresets();
 initClips();
+initFolder();
 initZoneEditor();
 initPanel();
 sizeCanvases();

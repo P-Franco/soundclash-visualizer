@@ -8,10 +8,12 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
+                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
    --no-worklet  forces the main-thread fallback detector.
+   --only        runs just the named sections (a quick check while working on one feature).
    --https       serves the same file from a pretend https origin instead of file://, to exercise
                  the code paths that differ there (the worklet loads from a Blob URL).
 
@@ -30,6 +32,14 @@ const file = path.resolve(args.file || path.join(root, "dist", "soundclash-visua
 const outDir = path.join(root, "test-output");
 const [vw, vh] = String(args.size || "1280x720").split("x").map(Number);
 const WARMUP_MS = 2500, LOOP_MS = drum.PATTERN.loopSec * 1000, WINDOW_MS = (Number(args.seconds) || drum.PATTERN.loopSec) * 1000;
+
+const only = args.only ? String(args.only).split(",") : null;
+const run = name => !only || only.includes(name);
+
+/* everything printed also goes to test-output/verify-last.txt, so a failed run can be read without running it again */
+const printed = [], print = console.log;
+console.log = (...a) => { printed.push(a.join(" ")); print(...a); };
+process.on("exit", () => { try{ fs.mkdirSync(outDir, {recursive: true}); fs.writeFileSync(path.join(outDir, "verify-last.txt"), printed.join("\n") + "\n"); }catch(e){} });
 
 const results = [];
 const check = (name, ok, detail) => { results.push({name, ok}); console.log((ok ? "  ok    " : "  FAIL  ") + name + (detail ? "  (" + detail + ")" : "")); };
@@ -105,14 +115,16 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn")}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn"), folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame")}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
   /* ---------- hit detection ---------- */
-  await page.waitForTimeout(WARMUP_MS);
+  await page.waitForTimeout(run("hits") ? WARMUP_MS : 600);
   const {mode, via, why} = await page.evaluate(() => ({mode: window.__scv.detMode || "interval", via: window.__scv.detVia || "", why: window.__scv.detError || ""}));
-  const m = await countHits(page, WINDOW_MS);
+  let m = null;
+  if(run("hits")){
+  m = await countHits(page, WINDOW_MS);
   section("hit detection over " + (m.elapsed / 1000).toFixed(2) + " s, MilkDrop " + (args.md ? "on" : "off") + ", detector: " + mode + ", " + m.fps.toFixed(0) + " frames per second");
   compare(m);
   if(info.features.zones){
@@ -121,26 +133,29 @@ async function main(){
   }
 
   await page.screenshot({path: path.join(outDir, "verify.png")});
+  }
 
-  if(mode === "worklet"){
+  if(mode === "worklet" && run("stall")){
     /* the point of the worklet: a main thread that is blocked most of the time must not lose hits */
     const st = await countHits(page, WINDOW_MS, [400, 500]);
     section("same again with the main thread blocked 400 ms out of every 500 (" + st.fps.toFixed(0) + " frames per second)");
     compare(st);
   }
 
-  if(info.features.zones) await zones(page);
-  if(info.features.clipState) await clipTests(page);
-  if(info.features.cuts) await cutTests(page);
-  if(info.features.regions) await regionTests(page);
-  await hotkeys(page);
+  if(info.features.zones && run("zones")) await zones(page);
+  if(info.features.clipState && run("clips")) await clipTests(page);
+  if(info.features.cuts && run("cuts")) await cutTests(page);
+  if(info.features.regions && run("regions")) await regionTests(page);
+  if(info.features.folder && run("folder")) await folderTests(page);
+  if(info.features.frame && run("frame")) await frameTests(page);
+  if(run("hotkeys")) await hotkeys(page);
 
   section("storage");
   const keys = await page.evaluate(() => Object.keys(localStorage));
   check("settings are saved under the scv_ prefix", keys.length > 0 && keys.every(k => k.startsWith("scv_")), keys.length + " keys");
 
   await browser.close();
-  finish(errors, external, {...m, mode});
+  finish(errors, external, m && {...m, mode});
 }
 
 /* ---------- hit zone editor ---------- */
@@ -222,6 +237,15 @@ async function makeClips(page, n){
     };
     window.__testClips = await Promise.all(Array.from({length: n}, (_, k) => rec(k)));
   }, {n, secs: CLIP_SEC});
+}
+
+/* Sections that need clips call this first, so each one can also run on its own (--only). */
+async function ensureClips(page){
+  if(!(await page.evaluate(() => !!window.__testClips))) await makeClips(page, 3);
+  if(await page.evaluate(() => window.__scv.clips.length === 0)){
+    await page.evaluate(() => window.__scv.addClips(window.__testClips));
+    await page.waitForTimeout(700);
+  }
 }
 
 async function clipTests(page){
@@ -340,6 +364,7 @@ async function clipTests(page){
 /* ---------- beat-synced cuts (the loop has two kicks a second) ---------- */
 async function cutTests(page){
   section("beat cuts");
+  await ensureClips(page);
   const st = () => page.evaluate(() => window.__scv.clipState());
   const set = (id, value) => page.evaluate(({id, value}) => {
     const el = document.getElementById(id);
@@ -407,6 +432,7 @@ async function cutTests(page){
 /* ---------- per-clip loop regions ---------- */
 async function regionTests(page){
   section("loop regions");
+  await ensureClips(page);
   const st = () => page.evaluate(() => window.__scv.clipState());
   const clip = i => page.evaluate(i => { const c = window.__scv.clips[i]; return c ? {name: c.name, in: c.in, out: c.out, key: c.key} : null; }, i);
   const set = (id, value) => page.evaluate(({id, value}) => {
@@ -522,6 +548,77 @@ async function regionTests(page){
   await click("clearRegion");
   await set("loopMode", "cycle"); await set("xfade", 1);
   await wait(300);
+}
+
+/* ---------- open a folder ---------- */
+/* The native folder dialog cannot be driven from a test, so showDirectoryPicker is replaced. First with a
+   stand-in folder (checks the reading: subfolders, sort order, non-video files), then, where the browser
+   allows it on this page, with a real directory handle from its private file system (checks that the
+   folder is remembered and reopened after a reload). The dialog itself is not exercised. */
+async function folderTests(page){
+  section("open folder");
+  await ensureClips(page);
+  const names = () => page.evaluate(() => window.__scv.clips.map(c => c.name));
+  const note = () => page.evaluate(() => document.getElementById("folderV").textContent);
+  const wait = ms => page.waitForTimeout(ms);
+
+  await page.evaluate(() => {
+    const [a, b, c] = window.__testClips;
+    const as = (f, name) => new File([f], name, {type: f.type});
+    const file = (name, f) => ({kind: "file", name, getFile: async () => f});
+    const dir = (name, kids) => ({kind: "directory", name, queryPermission: async () => "granted", requestPermission: async () => "granted",
+      async *entries(){ for(const k of kids) yield [k.name, k]; }});
+    window.showDirectoryPicker = async () => dir("party clips", [
+      file("b intro.webm", as(b, "b intro.webm")), file("readme.txt", new File(["x"], "readme.txt")), file("a opener.WEBM", as(a, "a opener.WEBM")),
+      dir("late night", [file("clip 10.webm", as(c, "clip 10.webm")), file("clip 2.webm", as(a, "clip 2.webm")), file("cover.jpg", new File(["x"], "cover.jpg"))]),
+    ]);
+  });
+  await page.evaluate(() => document.getElementById("openFolder").click());
+  await wait(900);
+  let n = await names(), s = await page.evaluate(() => window.__scv.clipState());
+  check("Open folder replaces the playlist with every video in the folder, subfolders too", n.join(" | ") === "a opener.WEBM | b intro.webm | clip 2.webm | clip 10.webm", n.join(" | "));
+  check("sorted by path with numbers in order, other files ignored", n.indexOf("clip 2.webm") < n.indexOf("clip 10.webm") && !n.some(x => /txt|jpg/.test(x)));
+  check("the first clip of the folder plays", s.idx === 0 && !s.els[s.front].paused && s.els[s.front].clip === "a opener.WEBM");
+  check("the drawer says which folder is loaded", /party clips, 4 clips/.test(await note()), await note());
+
+  /* remembered between launches: needs a real handle */
+  const real = await page.evaluate(async () => {
+    try{
+      const root = await navigator.storage.getDirectory();
+      const d = await root.getDirectoryHandle("scv-verify-folder", {create: true});
+      const put = async (dirH, name, f) => { const h = await dirH.getFileHandle(name, {create: true}), w = await h.createWritable(); await w.write(f); await w.close(); };
+      await put(d, "one.webm", window.__testClips[0]);
+      const sub = await d.getDirectoryHandle("more", {create: true});
+      await put(sub, "two.webm", window.__testClips[1]);
+      window.showDirectoryPicker = async () => d;
+      return "ok";
+    }catch(e){ return String(e && e.name || e); }
+  });
+  if(real !== "ok"){
+    console.log("  skip  remembered folder: this page cannot get a real folder handle in a test (" + real + ")");
+    return;
+  }
+  await page.evaluate(() => document.getElementById("openFolder").click());
+  await wait(900);
+  n = await names();
+  check("a real folder handle loads the same way", n.join(" | ") === "more/two.webm".split("/").pop() + " | one.webm" || n.join(" | ") === "two.webm | one.webm" || n.join(" | ") === "one.webm | two.webm", n.join(" | "));
+  check("and is remembered", /Remembered/.test(await note()) && await page.evaluate(() => !document.getElementById("forgetFolder").hidden), await note());
+  await page.reload();
+  await wait(1200);
+  n = await names();
+  check("after a reload the folder opens again by itself", n.length === 2 && n.includes("one.webm") && n.includes("two.webm"), n.join(" | ") + " :: " + await note());
+  await page.evaluate(() => document.getElementById("forgetFolder").click());
+  await wait(300);
+  await page.reload();
+  await wait(900);
+  n = await names();
+  check("Forget folder stops that", n.length === 0, n.length + " clips after reload");
+  await page.evaluate(async () => { try{ const root = await navigator.storage.getDirectory(); await root.removeEntry("scv-verify-folder", {recursive: true}); }catch(e){} });
+  /* back to a running show for whatever comes next */
+  if(!args.md) await page.evaluate(() => { const el = document.getElementById("mdOn"); el.checked = false; el.dispatchEvent(new Event("change")); });
+  await page.click("#goMic");
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("start")).display === "none", null, {timeout: 15000});
+  await ensureClips(page);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

@@ -42,8 +42,12 @@
 
   <section>
     <h2>VIDEO CLIPS</h2>
-    <div class="row"><label class="filebtn" for="vids">Add clips<input class="hide" type="file" id="vids" accept="video/*" multiple></label>
+    <div class="row"><button id="openFolder">Open folder</button>
+      <label class="filebtn" for="vids">Add clips<input class="hide" type="file" id="vids" accept="video/*" multiple></label>
       <button id="nextClip">Next clip</button></div>
+    <input class="hide" type="file" id="folderIn" webkitdirectory multiple>
+    <div class="keys" id="folderV"></div>
+    <div class="row"><button id="reopenFolder" hidden></button><button id="forgetFolder" hidden>Forget folder</button></div>
     <ul id="clips"></ul>
     <label><span>Position in clip <b id="posV"></b></span><input type="range" id="pos" min="0" max="1" step="0.001" value="0"></label>
     <div class="row"><button id="setIn">Set in</button><button id="setOut">Set out</button><button id="clearRegion">Clear</button></div>
