@@ -3,7 +3,7 @@ import { $, stageMd, panel } from "./dom.js";
 import { S } from "./state.js";
 import { bindRange, bindSelect, bindCheck, pct } from "./store.js";
 import { gain } from "./audio.js";
-import { replan, nextClip, setRate } from "./clips.js";
+import { replan, nextClip, setRate, setRegionPoint } from "./clips.js";
 import { nextPreset } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
@@ -62,6 +62,8 @@ export function initPanel(){
     else if(k === "g"){ const g = $("graph"); g.value = S.graph === "bars" ? "curve" : "bars"; g.dispatchEvent(new Event("change")); }
     else if(k === "m"){ $("mdOn").checked = !S.mdOn; $("mdOn").dispatchEvent(new Event("change")); }
     else if(k === "c"){ $("cutOn").checked = !S.cutOn; $("cutOn").dispatchEvent(new Event("change")); }
+    else if(k === "i") setRegionPoint("in");
+    else if(k === "o") setRegionPoint("out");
     else if(k === " "){ e.preventDefault(); $("lock").checked = S.locked = !S.locked; }
   });
 }

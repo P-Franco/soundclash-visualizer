@@ -105,7 +105,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn")}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", cuts: !!document.getElementById("cutOn"), regions: !!document.getElementById("setIn")}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -132,6 +132,7 @@ async function main(){
   if(info.features.zones) await zones(page);
   if(info.features.clipState) await clipTests(page);
   if(info.features.cuts) await cutTests(page);
+  if(info.features.regions) await regionTests(page);
   await hotkeys(page);
 
   section("storage");
@@ -401,6 +402,126 @@ async function cutTests(page){
 
   await page.evaluate(() => window.__scv.addClips(window.__testClips.slice(1)));
   await wait(500);
+}
+
+/* ---------- per-clip loop regions ---------- */
+async function regionTests(page){
+  section("loop regions");
+  const st = () => page.evaluate(() => window.__scv.clipState());
+  const clip = i => page.evaluate(i => { const c = window.__scv.clips[i]; return c ? {name: c.name, in: c.in, out: c.out, key: c.key} : null; }, i);
+  const set = (id, value) => page.evaluate(({id, value}) => {
+    const el = document.getElementById(id);
+    if(el.type === "checkbox") el.checked = value; else el.value = value;
+    el.dispatchEvent(new Event(el.type === "range" ? "input" : "change"));
+  }, {id, value});
+  const click = id => page.evaluate(id => document.getElementById(id).click(), id);
+  const seek = t => page.evaluate(t => { const s = window.__scv.clipState(), v = document.querySelectorAll("#vids video")[s.front]; v.currentTime = t; }, t);
+  const wait = ms => page.waitForTimeout(ms);
+  const fr = s => s.els[s.front];
+  /* follow the front video for a while: lowest and highest position, loop count, clip changes, fades seen */
+  const watch = ms => page.evaluate(ms => new Promise(res => {
+    const s0 = window.__scv.clipState(); let lo = 1e9, hi = -1, wraps = 0, last = null, changes = 0, prev = s0.idx, faded = false;
+    const t0 = performance.now();
+    const tick = () => {
+      const s = window.__scv.clipState(), e = s.els[s.front];
+      if(s.idx !== prev){ changes++; prev = s.idx; }
+      if(s.fading) faded = true;
+      if(e.ready && !s.pending){ const t = e.t; lo = Math.min(lo, t); hi = Math.max(hi, t); if(last !== null && t < last - 0.3) wraps++; last = t; }
+      if(performance.now() - t0 < ms) requestAnimationFrame(tick); else res({lo, hi, wraps, changes, faded});
+    };
+    tick();
+  }), ms);
+
+  await set("cutOn", false); await set("loopMode", "one"); await set("xfade", 0);
+  await page.evaluate(() => document.querySelector("#clips li").click());
+  await wait(500);
+
+  /* the position slider seeks */
+  let a = await st();
+  await set("pos", 2 / fr(a).dur); await wait(250);
+  a = await st();
+  check("the position slider seeks the clip", Math.abs(fr(a).t - 2.2) < 0.4, "asked for 2.00 s, now at " + fr(a).t.toFixed(2) + " s");
+
+  /* set in at about 2 s, out at about 3.5 s */
+  await click("setIn"); await wait(1400); await click("setOut"); await wait(200);
+  let c = await clip(0);
+  a = await st();
+  check("Set in and Set out mark a region on the playing clip", c.in > 1.8 && c.in < 2.8 && c.out > c.in + 1 && c.out < c.in + 2, "in " + c.in + " s, out " + c.out + " s");
+  check("after Set out, playback returns to the in point", Math.abs(fr(a).t - c.in) < 0.5 && !fr(a).paused, "at " + fr(a).t.toFixed(2) + " s");
+  const text = await page.evaluate(() => document.getElementById("regionV").textContent + " | " + (document.querySelector("#clips li .tag") ? "tag" : "no tag"));
+  check("the region is shown in the drawer and tagged in the list", /to/.test(text) && / \| tag$/.test(text), text);
+
+  let w = await watch(4200);
+  check("loop one: playback stays inside the region and loops", w.lo >= c.in - 0.15 && w.hi <= c.out + 0.2 && w.wraps >= 2 && w.changes === 0, "stayed in " + w.lo.toFixed(2) + " to " + w.hi.toFixed(2) + " s, " + w.wraps + " loops");
+
+  /* crossfaded loop of the region */
+  await set("xfade", 0.5); await wait(300);
+  w = await watch(4200);
+  check("with a crossfade, the region loop dissolves into its own start", w.faded && w.lo >= c.in - 0.15 && w.hi <= c.out + 0.2 && w.changes === 0, "stayed in " + w.lo.toFixed(2) + " to " + w.hi.toFixed(2) + " s");
+  await set("xfade", 0);
+
+  /* beat cuts to a random point stay inside the region */
+  await set("cutMode", "point"); await set("cutEvery", 1); await set("cutGap", 0.5); await set("cutOn", true);
+  await wait(400);
+  const targets = [];
+  for(let i = 0; i < 8; i++){ const s = await st(); if(typeof s.planAt === "number") targets.push(s.planAt); await wait(300); }
+  check("random-point beat cuts aim inside the region", targets.length >= 4 && targets.every(t => t >= c.in - 0.01 && t <= c.out), targets.length + " targets between " + Math.min(...targets).toFixed(2) + " and " + Math.max(...targets).toFixed(2) + " s");
+  await set("cutOn", false); await set("cutMode", "clip"); await set("cutEvery", 16); await set("cutGap", 4);
+
+  /* cycle: the out point ends the clip */
+  await set("loopMode", "cycle"); await wait(100);
+  await seek(c.in);
+  w = await watch((c.out - c.in) * 1000 + 900);
+  a = await st();
+  check("cycle: the out point moves on to the next clip", a.idx === 1 && w.changes === 1, "now on clip " + (a.idx + 1));
+
+  /* saved, and restored when the page is opened again with the same files */
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("scv_regions") || "{}"));
+  check("the region is saved under the file's name and size", Array.isArray(saved[c.key]) && saved[c.key][0] === c.in && saved[c.key][1] === c.out, c.key);
+  /* Keep the recorded files across a reload (IndexedDB), and plant a region that cannot fit clip 2,
+     as if some other file had the same name and size. */
+  const c2 = await clip(1);
+  await page.evaluate(async key => {
+    const r = JSON.parse(localStorage.getItem("scv_regions")); r[key] = [50, 60]; localStorage.setItem("scv_regions", JSON.stringify(r));
+    const files = window.__scv.clips.map(c => window.__testClips.find(f => f.name === c.name));
+    await new Promise((res, rej) => { const q = indexedDB.open("scv-verify", 1); q.onupgradeneeded = () => q.result.createObjectStore("f"); q.onerror = () => rej(q.error);
+      q.onsuccess = () => { const tx = q.result.transaction("f", "readwrite"); tx.objectStore("f").put(files, "clips"); tx.oncomplete = () => { q.result.close(); res(); }; tx.onerror = () => rej(tx.error); }; });
+  }, c2.key);
+  await page.reload();
+  await page.evaluate(() => { const el = document.getElementById("mdOn"); el.checked = false; el.dispatchEvent(new Event("change")); });
+  await page.click("#goMic");
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("start")).display === "none", null, {timeout: 15000});
+  const planted = await page.evaluate(async () => {
+    window.__testClips = await new Promise((res, rej) => { const q = indexedDB.open("scv-verify", 1); q.onerror = () => rej(q.error);
+      q.onsuccess = () => { const g = q.result.transaction("f").objectStore("f").get("clips"); g.onsuccess = () => { q.result.close(); res(g.result); }; g.onerror = () => rej(g.error); }; });
+    indexedDB.deleteDatabase("scv-verify");
+    window.__scv.addClips(window.__testClips);
+    return window.__scv.clips[1].in;              // read before the clip has had time to load
+  });
+  await wait(900);
+  const back = await clip(0), fixed = await clip(1);
+  a = await st();
+  check("after a reload, the same file gets its region back", back.in === c.in && back.out === c.out, back.in + " to " + back.out + " s");
+  check("and playback starts inside it", fr(a).t >= c.in - 0.15 && fr(a).t <= c.out + 0.2 && !fr(a).paused, "at " + fr(a).t.toFixed(2) + " s");
+  check("a saved region that does not fit the file is dropped when the clip loads", planted === 50 && fixed.in === null && fixed.out === null, "was 50 to 60 s on a " + CLIP_SEC + " s clip");
+
+  /* Clear, then the I and O hotkeys */
+  await set("loopMode", "one"); await set("xfade", 0); await wait(200);
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await click("clearRegion"); await wait(200);
+  c = await clip(0); a = await st();
+  check("Clear removes the region and the seamless loop is back", c.in === null && c.out === null && fr(a).loop === true);
+  await seek(1.0); await wait(250);
+  await page.keyboard.press("i"); await wait(1300); await page.keyboard.press("o"); await wait(200);
+  c = await clip(0);
+  check("I and O set the in and out points", c.in > 0.8 && c.in < 1.8 && c.out > c.in + 0.9, "in " + c.in + " s, out " + c.out + " s");
+  await page.mouse.move(vw - 60, vh / 2); await page.mouse.move(vw - 80, vh / 2 + 5);
+  await page.locator("#setIn").scrollIntoViewIfNeeded();
+  await wait(200);
+  await page.screenshot({path: path.join(outDir, "verify-region.png")});
+  await click("clearRegion");
+  await set("loopMode", "cycle"); await set("xfade", 1);
+  await wait(300);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

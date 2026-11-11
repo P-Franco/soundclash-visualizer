@@ -45,6 +45,7 @@ While working on the code, `npm run dev` rebuilds on every change in `src/`.
 | `G` | Switch graph style: LED bars or spectrum curve |
 | `M` | MilkDrop layer on/off |
 | `C` | Beat cuts on/off |
+| `I` / `O` | Set the loop in / out point of the playing clip |
 
 ## Wiring a DJ mixer into line-in
 
@@ -100,6 +101,10 @@ cannot feed back. Only the test track plays out loud.
   over the video, with a preset picker, auto change, strength and blend mode.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
+- **Loop region**: mark an in and an out point on a clip so only the good section plays.
+  Drag the position slider to find the spot, then Set in / Set out (or `I` / `O`). Looping,
+  crossfades and beat cuts all stay inside the region. Regions are remembered per file
+  (by name and size), so they come back the next time you add the same clip.
 - **Beat cuts**: optionally cut the video on the kick, every N kicks, either to another
   clip or to a random point in the current one, with a minimum time between cuts. Off by
   default. While it is on, the CLIP line in the status block counts kicks toward the next
@@ -190,6 +195,7 @@ clicks Start, and checks:
 - clip playback, using short clips the page records for itself: crossfades, hard cuts,
   each end-of-clip mode, a file that cannot be decoded, removing clips,
 - beat cuts: cut rate, the minimum gap, random-point mode, the single-clip fallback,
+- loop regions: setting, looping inside the region, coming back after a reload,
 - every hotkey,
 - that nothing was logged as a console error and nothing was requested over the network.
 

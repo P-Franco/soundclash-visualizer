@@ -7,12 +7,13 @@
    - A switch plays the back element and either swaps at once or fades over the crossfade time.
      When the fade is done the old front is paused and becomes the new back.
    - vids[1] sits above vids[0]. `mix` is the opacity of vids[1]: 0 shows vids[0], 1 shows vids[1]. */
-import { $, vids } from "./dom.js";
+import { $, vids, panel } from "./dom.js";
 import { S } from "./state.js";
+import { store } from "./store.js";
 import { useFile } from "./audio.js";
 import { onHit } from "./detect.js";
 
-export const clips = [];       // {name, url, bad}
+export const clips = [];       // {name, url, key, in, out, bad}  in/out: loop region in seconds, null = not set
 export let clipIdx = -1;
 
 let cur = 0;                   // index into vids of the front element
@@ -27,7 +28,7 @@ let cuts = 0;                  // beat cuts made so far (for tests)
 const front = () => vids[cur], back = () => vids[1 - cur];
 const isVideo = f => f.type.startsWith("video/") || /\.(mp4|webm|mkv|mov|m4v)$/i.test(f.name);
 const rate = () => parseFloat($("rate").value);
-const playable = () => clips.filter(c => !c.bad).length;
+function playable(){ let n = 0; for(let i = 0; i < clips.length; i++) if(!clips[i].bad) n++; return n; }
 
 function setMix(m){ mix = m; vids[1].style.opacity = m; }
 function showVideo(on){
@@ -36,8 +37,30 @@ function showVideo(on){
 }
 
 /* ---------- where a clip starts and ends ---------- */
-const clipIn = () => 0;
-const clipOut = (clip, el) => el.duration;
+/* A clip can carry a loop region: an in point, an out point, or both. Everything that asks where a clip
+   starts or ends goes through these two, so looping, crossfades and beat cuts all stay inside the region. */
+const MIN_REGION = 0.2;        // seconds
+const clipIn = clip => clip.in || 0;
+const clipOut = (clip, el) => (clip.out != null && !(clip.out > el.duration)) ? clip.out : el.duration;
+const hasRegion = clip => clip.in != null || clip.out != null;
+
+/* Regions are remembered per file (name and size), so they come back when the same clip is added again. */
+let regions = {};
+try{ const v = JSON.parse(store.get("regions", "{}")); if(v && typeof v === "object") regions = v; }catch(e){}
+function saveRegion(clip){
+  if(hasRegion(clip)) regions[clip.key] = [clip.in, clip.out]; else delete regions[clip.key];
+  const keys = Object.keys(regions);
+  for(let i = 0; i < keys.length - 500; i++) delete regions[keys[i]];        // keep the list bounded: oldest go first
+  store.set("regions", JSON.stringify(regions));
+}
+/* A saved region that does not fit the file (a different clip with the same name and size) is dropped. */
+function checkRegion(clip, dur){
+  if(!isFinite(dur) || !hasRegion(clip)) return;
+  const was = clip.in + "," + clip.out;
+  if(clip.in != null && clip.in > dur - MIN_REGION) clip.in = null;
+  if(clip.out != null && (clip.out > dur + 0.05 || clip.out - clipIn(clip) < MIN_REGION)) clip.out = null;
+  if(clip.in + "," + clip.out !== was){ saveRegion(clip); renderClips(); }
+}
 /* The crossfade that fits this clip: never more than about half its length. */
 function fadeFor(clip, el){
   const len = clipOut(clip, el) - clipIn(clip);
@@ -71,9 +94,10 @@ function markReady(el){
 /* Make clip `idx` the current one. dur is the crossfade in seconds (0 = swap at once), at an optional start time. */
 function switchTo(idx, dur, at){
   if(fade){ const f = fade.from; fade = null; setMix(cur); f.pause(); }      // a fade in progress snaps to its end
-  const clip = clips[idx];
+  const clip = clips[idx], moved = idx !== clipIdx;
   clipIdx = idx; lastCut = performance.now();
-  showVideo(true); renderClips();
+  showVideo(true);
+  if(moved) renderClips();                      // not on every loop of the same clip: that would rebuild the list under the mouse
   const el = back();
   pend = {el, dur: dur || 0};
   prepare(el, clip, at === undefined ? clipIn(clip) : at);
@@ -139,7 +163,7 @@ const nextIdx = () => (plan && plan.idx !== clipIdx && clips[plan.idx] && !clips
 /* Native looping is seamless, so it is used whenever nothing else has to happen at the loop point. */
 function syncLoop(){
   const single = S.loopMode === "one" || clips.length < 2;
-  for(const el of vids) el.loop = el === front() && single && !(S.xfade > 0 && S.xfadeLoop);
+  for(const el of vids) el.loop = el === front() && single && !(S.xfade > 0 && S.xfadeLoop) && !(el._clip && hasRegion(el._clip));
 }
 
 /* The current clip reached its end. */
@@ -183,7 +207,12 @@ export function cutInfo(){ return S.cutOn && clipIdx >= 0 ? {kicks: Math.min(kic
 
 /* ---------- public controls ---------- */
 export function addClips(files){
-  for(const f of files){ if(isVideo(f)) clips.push({name:f.name, url:URL.createObjectURL(f)}); }
+  for(const f of files){
+    if(!isVideo(f)) continue;
+    const key = f.name + "|" + f.size, r = regions[key];
+    clips.push({name: f.name, url: URL.createObjectURL(f), key,
+      in: r && typeof r[0] === "number" ? r[0] : null, out: r && typeof r[1] === "number" ? r[1] : null});
+  }
   renderClips();
   if(clipIdx < 0 && clips.length) switchTo(0, 0);
   else replan();
@@ -213,8 +242,8 @@ function removeClip(i){
   URL.revokeObjectURL(c.url); clips.splice(i, 1);
   if(!clips.length){ stopAll(); return; }
   if(i === clipIdx){
-    if(fade) endFade();
     switchTo(i % clips.length, 0);
+    renderClips();
   }else{
     if(i < clipIdx) clipIdx--;
     if(back()._clip === c && !fade){ unload(back()); plan = null; }
@@ -227,15 +256,60 @@ function renderClips(){
   clips.forEach((c,i) => {
     const li = document.createElement("li"); if(i === clipIdx) li.className = "on";
     const s = document.createElement("span"); s.textContent = (c.bad ? "[can't play] " : "") + c.name; s.title = c.name;
+    if(hasRegion(c)){ const tag = document.createElement("i"); tag.className = "tag"; tag.textContent = "loop"; tag.title = regionText(c); li.append(tag); }
     const x = document.createElement("button"); x.textContent = "x"; x.setAttribute("aria-label", "Remove " + c.name);
     x.addEventListener("click", ev => { ev.stopPropagation(); removeClip(i); });
     li.addEventListener("click", () => playClip(i));
-    li.append(s, x); ul.appendChild(li);
+    li.prepend(s); li.append(x); ul.appendChild(li);
   });
+  renderRegion();
+}
+
+/* ---------- loop region controls ---------- */
+const fmtT = t => Math.floor(t / 60) + ":" + (t % 60).toFixed(2).padStart(5, "0");
+function regionText(c){
+  if(c.in != null && c.out != null) return fmtT(c.in) + " to " + fmtT(c.out) + " (" + (c.out - c.in).toFixed(2) + " s)";
+  if(c.in != null) return fmtT(c.in) + " to the end";
+  if(c.out != null) return "start to " + fmtT(c.out);
+  return "whole clip";
+}
+function renderRegion(){
+  const c = clips[clipIdx];
+  $("regionV").textContent = c ? "Loop region: " + regionText(c) : "Loop region: no clip playing";
+  for(const id of ["setIn", "setOut", "clearRegion", "pos"]) $(id).disabled = !c;
+  $("clearRegion").disabled = !c || !hasRegion(c);
+}
+/* Mark the in or out point at the current position of the playing clip. The point just set wins:
+   if the other one no longer leaves a usable region, it is dropped. */
+export function setRegionPoint(which){
+  const c = clips[clipIdx], el = front(); if(!c || el._clip !== c) return;
+  const t = Math.round(el.currentTime * 100) / 100;
+  if(which === "in"){
+    c.in = t > 0.05 ? t : null;
+    if(c.out != null && c.out - clipIn(c) < MIN_REGION) c.out = null;
+  }else{
+    if(t < MIN_REGION) return;
+    c.out = t;
+    if(c.in != null && c.out - c.in < MIN_REGION) c.in = null;
+    el.currentTime = clipIn(c);                 // stay on this clip and show the loop, whatever the end-of-clip mode is
+  }
+  saveRegion(c); renderClips(); replan();
+}
+function clearRegion(){
+  const c = clips[clipIdx]; if(!c) return;
+  c.in = c.out = null;
+  saveRegion(c); renderClips(); replan();
+}
+function showPosition(){
+  const el = front(), d = el.duration, pos = $("pos");
+  if(!isFinite(d) || d <= 0){ $("posV").textContent = ""; return; }
+  if(document.activeElement !== pos) pos.value = el.currentTime / d;
+  $("posV").textContent = fmtT(el.currentTime) + " / " + fmtT(d);
 }
 
 /* ---------- once per frame ---------- */
 export function tickClips(now){
+  if(clipIdx >= 0 && S.frameNo % 6 === 0 && panel.classList.contains("show")) showPosition();
   if(fade){
     const p = Math.min(1, (now - fade.t0) / fade.dur);
     setMix(cur === 1 ? p : 1 - p);
@@ -243,11 +317,15 @@ export function tickClips(now){
     return;
   }
   if(pend || clipIdx < 0) return;
-  /* start the crossfade early enough that it finishes as the clip runs out */
+  /* The end of the clip (or of its loop region). With a crossfade, start early enough that the fade
+     finishes as the clip runs out. Without one, only a region's out point needs catching here:
+     the real end of the file raises "ended". */
   const el = front(), clip = clips[clipIdx];
-  if(!el._ready || el._clip !== clip || el.paused) return;
-  const d = fadeFor(clip, el);
-  if(d > 0 && !(el.loop) && (clipOut(clip, el) - el.currentTime) / (el.playbackRate || 1) <= d) advance(d);
+  if(!el._ready || el._clip !== clip || el.paused || el.loop) return;
+  const selfLoop = S.loopMode === "one" || playable() < 2;
+  const d = selfLoop && !S.xfadeLoop ? 0 : fadeFor(clip, el);
+  const left = (clipOut(clip, el) - el.currentTime) / (el.playbackRate || 1);
+  if(d > 0 ? left <= d : (clip.out != null && left <= 0)) advance(d);
 }
 
 /* ---------- element events ---------- */
@@ -258,7 +336,7 @@ function onError(el){
   if(wasPending) pend = null;
   if(wasPending || el === front()){
     if(clips.some(c => !c.bad)) switchTo(pickNext(), 0);
-    else renderClips();
+    renderClips();
   }else{
     plan = null; renderClips(); preloadNext();     // the preloaded clip was bad: line up another
   }
@@ -267,14 +345,28 @@ function onError(el){
 export function initClips(){
   for(const el of vids){
     el.preload = "auto";
-    el.addEventListener("loadeddata", () => { if(!el._clip) return; if(el._at > 0.05) el.currentTime = el._at; else markReady(el); });
+    el.addEventListener("loadeddata", () => {
+      if(!el._clip) return;
+      checkRegion(el._clip, el.duration);
+      if(el._at > el.duration - 0.1) el._at = clipIn(el._clip);
+      if(el._at > 0.05) el.currentTime = el._at; else markReady(el);
+    });
     el.addEventListener("seeked", () => { if(el._clip && !el._ready) markReady(el); });
     el.addEventListener("ended", () => { if(el === front() && !fade && !pend) advance(clipIdx >= 0 ? fadeFor(clips[clipIdx], el) : 0); });
+    el.addEventListener("timeupdate", () => {                      // backup for the out point when frames are not running (hidden tab)
+      const c = el._clip;
+      if(document.hidden && el === front() && c && c.out != null && !fade && !pend && el.currentTime >= c.out) advance(0);
+    });
     el.addEventListener("error", () => onError(el));
   }
   onHit((zone, i, age) => { if(i === 0) onKick(age); });       // the kick zone is always first
   $("vids").addEventListener("change", e => { addClips(e.target.files); e.target.value = ""; });
   $("nextClip").addEventListener("click", nextClip);
+  $("setIn").addEventListener("click", () => setRegionPoint("in"));
+  $("setOut").addEventListener("click", () => setRegionPoint("out"));
+  $("clearRegion").addEventListener("click", clearRegion);
+  $("pos").addEventListener("input", e => { const el = front(); if(isFinite(el.duration)) el.currentTime = parseFloat(e.target.value) * el.duration; });
+  renderRegion();
 
   /* drag and drop anywhere: videos join the playlist, an audio file becomes the test track */
   let dragDepth = 0;
