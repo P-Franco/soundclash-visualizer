@@ -19,9 +19,11 @@
 </div>
 
 <div id="pinUI" hidden>
+  <div class="pinG" id="pinGX"></div><div class="pinG" id="pinGY"></div>
   <div class="pinH" title="Corner 1"></div><div class="pinH" title="Corner 2"></div><div class="pinH" title="Corner 3"></div><div class="pinH" title="Corner 4"></div>
   <div id="pinHelp">
-    <b>Corner pin</b><br>Drag a corner, or press <kbd>1</kbd> to <kbd>4</kbd> (or <kbd>Tab</kbd>) to pick one and nudge it with the arrow keys. Hold <kbd>Shift</kbd> for bigger steps. Look at the wall, not this screen: stop when the squares are square and the circle is round.
+    <b>Corner pin</b><br>Drag a corner: it locks to a grid and to the other corners, so both sides come out even. A guide line turns white when it is level with or mirrors another corner. Hold <kbd>Ctrl</kbd> to drag freely. For fine steps, press <kbd>1</kbd> to <kbd>4</kbd> (or <kbd>Tab</kbd>) to pick a corner and nudge it with the arrow keys, <kbd>Shift</kbd> for bigger steps. Look at the wall, not this screen: stop when the squares are square and the circle is round.
+    <label class="check"><input type="checkbox" id="pinSnap" checked> Lock corners to the grid while dragging</label>
     <div class="row"><button id="pinReset2">Reset corners</button><button class="primary" id="pinDone">Done</button></div>
   </div>
 </div>

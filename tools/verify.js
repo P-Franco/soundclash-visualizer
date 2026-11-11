@@ -946,26 +946,63 @@ async function pinTests(page){
   let s = await page.evaluate(() => ({ui: !document.getElementById("pinUI").hidden, grid: getComputedStyle(document.getElementById("pin")).display, on: document.getElementById("pinOn").checked, edit: window.__scv.pinState().editing, panel: getComputedStyle(document.getElementById("panel")).transform}));
   check("P opens the corner grid and turns the pin on", s.ui && s.grid === "block" && s.on && s.edit);
 
-  /* drag the top left corner in and down */
-  let b = await handle(0);
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
-  await page.mouse.move(b.x + b.width / 2 + 60, b.y + b.height / 2 + 40, {steps: 6});
-  await page.mouse.move(b.x + b.width / 2 + 120, b.y + b.height / 2 + 70, {steps: 6}); await page.mouse.up();
-  await wait(150);
-  let c = await corners();
-  check("dragging a corner moves that corner of the picture and leaves the other three alone", c && near(c[0], [120, 70]) && near(c[1], [vw, 0]) && near(c[2], [vw, vh]) && near(c[3], [0, vh]), c ? "top left now at " + c[0].map(v => v.toFixed(1)).join(", ") : "no transform");
+  /* drag corner i by dx, dy from wherever its handle is; mid() runs while the button is still down */
+  const drag = async (i, dx, dy, mid) => {
+    const h = await handle(i), x = h.x + h.width / 2, y = h.y + h.height / 2;
+    await page.mouse.move(x, y); await page.mouse.down();
+    await page.mouse.move(x + dx / 2, y + dy / 2, {steps: 6});
+    await page.mouse.move(x + dx, y + dy, {steps: 6});
+    const seen = mid ? await mid() : undefined;
+    await page.mouse.up(); await wait(150);
+    return seen;
+  };
+  const pts = () => page.evaluate(() => window.__scv.pinState().pts);
+  /* the lock grid: 36 cells down the screen, and an even number of near-square cells across */
+  const cols = Math.max(2, Math.round(36 * vw / vh / 2) * 2), gx = vw / cols, gy = vh / 36;
+  const onGrid = (x, y) => [Math.round(x / gx) * gx, Math.round(y / gy) * gy];
 
-  /* keys: corner 2 (top right) five pixels left, then ten down with Shift */
+  /* drag the top left corner in and down: it lands on the nearest grid point, not where the mouse stopped */
+  await drag(0, 126, 73);
+  let c = await corners();
+  const tl = onGrid(126, 73);
+  check("dragging a corner moves that corner of the picture and leaves the other three alone", c && near(c[0], tl) && near(c[1], [vw, 0]) && near(c[2], [vw, vh]) && near(c[3], [0, vh]), c ? "top left now at " + c[0].map(v => v.toFixed(1)).join(", ") : "no transform");
+  check("a dragged corner locks to the grid", c && near(c[0], tl, 0.01) && !near(c[0], [126, 73], 2) && (await page.evaluate(() => window.__scv.pinState().snap)), "mouse stopped at 126, 73, grid point is " + tl.map(v => v.toFixed(1)).join(", "));
+
+  /* keys: corner 2 (top right) five pixels left, then ten down with Shift. Keys are for fine steps, so they do not lock. */
   await page.keyboard.press("2");
   for(let i = 0; i < 5; i++) await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Shift+ArrowDown"); await wait(120);
   c = await corners();
-  check("1 to 4 pick a corner and the arrow keys nudge it, ten pixels with Shift", near(c[1], [vw - 5, 10]) && near(c[0], [120, 70]), "top right now at " + c[1].map(v => v.toFixed(1)).join(", "));
+  check("1 to 4 pick a corner and the arrow keys nudge it, ten pixels with Shift", near(c[1], [vw - 5, 10]) && near(c[0], tl), "top right now at " + c[1].map(v => v.toFixed(1)).join(", "));
   await page.keyboard.press("Tab");
   check("Tab moves on to the next corner", (await page.evaluate(() => window.__scv.pinState().sel)) === 2);
 
+  /* the top right corner now sits between grid lines, 10 px down. Bring the top left corner to within a few
+     pixels of that height: it must lock exactly level, and the guide line across must say so. */
+  const g = await drag(0, 0, 14 - tl[1], () => page.evaluate(() => ({drag: document.getElementById("pinUI").classList.contains("drag"),
+    across: document.getElementById("pinGY").classList.contains("even"), down: document.getElementById("pinGX").classList.contains("even"),
+    shown: getComputedStyle(document.getElementById("pinGY")).display})));
+  let q = await pts();
+  check("a corner dragged close to level with another one locks exactly level", q[0][1] === q[1][1] && Math.abs(q[0][0] * vw - tl[0]) < 0.01, "top left " + (q[0][1] * vh).toFixed(2) + " px down, top right " + (q[1][1] * vh).toFixed(2));
+  check("guide lines show while dragging, and the level one lights up", g.drag && g.shown === "block" && g.across && !g.down && !(await page.evaluate(() => document.getElementById("pinUI").classList.contains("drag"))));
+
+  /* bottom left: in line with the top left corner, and as far up from the bottom as the top corners are down from the top */
+  await drag(3, tl[0] - 3, -7);
+  q = await pts();
+  check("a corner also locks in line with, and mirror to, the others", q[3][0] === q[0][0] && Math.abs(q[3][1] - (1 - q[0][1])) < 1e-9, "bottom left at " + (q[3][0] * vw).toFixed(2) + ", " + (q[3][1] * vh).toFixed(2));
+
+  /* Ctrl, or unticking the lock, lets a corner go anywhere */
+  await page.keyboard.down("Control"); await drag(3, 33, -27); await page.keyboard.up("Control");
+  c = await corners();
+  check("holding Ctrl drags a corner freely", near(c[3], [tl[0] + 33, vh - 10 - 27]), "bottom left now at " + c[3].map(v => v.toFixed(1)).join(", "));
+  await click("pinSnap"); await wait(80);
+  await drag(3, 4, 4);
+  c = await corners();
+  check("unticking the lock does the same, and is remembered", near(c[3], [tl[0] + 37, vh - 10 - 23]) && (await page.evaluate(() => localStorage.getItem("scv_pinSnap"))) === "0", "bottom left now at " + c[3].map(v => v.toFixed(1)).join(", "));
+  await click("pinSnap"); await wait(80);
+
   /* a move that would fold the picture over itself is refused */
-  b = await handle(2);
+  const b = await handle(2);
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down();
   await page.mouse.move(60, 40, {steps: 12}); await page.mouse.up(); await wait(150);
   c = await corners();

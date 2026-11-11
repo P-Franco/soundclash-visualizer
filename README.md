@@ -130,8 +130,12 @@ cannot feed back. Only the test track plays out loud.
 - **Corner pin**: for a projector hung high or off to one side, which throws a lopsided
   picture. Turn it on, press `P` (or Adjust corners), and a grid appears. Drag each corner,
   or pick one with `1` to `4` and nudge it with the arrow keys, until the squares look square
-  and the circle looks round on the wall. Everything is bent together: video, MilkDrop,
-  border and graph. The corners are saved, so it is done once per venue. See the note below.
+  and the circle looks round on the wall. A dragged corner locks to a grid of screen
+  positions, and level with, in line with or mirror to the other corners, so both sides come
+  out even without lining them up by eye; a guide line turns white when it does. Hold `Ctrl`
+  to drag freely, or untick the lock; the arrow keys always move a pixel at a time.
+  Everything is bent together: video, MilkDrop, border and graph. The corners are saved, so
+  it is done once per venue. See the note below.
 - **Show mode**: one switch (`X`) and the looks play by themselves, forever. The border
   goes through every scene in the show, each one turning smoothly into the next (a
   rectangle rounds off into an oval, widths glide, bars and pulse fade in and out). A graph

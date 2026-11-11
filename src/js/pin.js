@@ -7,7 +7,9 @@
 
    Calibration: a grid of true squares and a circle are drawn over the picture, and the four corners can
    be dragged, or picked with 1 to 4 and nudged with the arrow keys, until the grid looks square on the
-   wall. The corners are saved (scv_pin), so it is done once per venue.
+   wall. The corners are saved (scv_pin), so it is done once per venue. A dragged corner locks to a grid of
+   screen positions and to the other corners, so the picture can be made even without lining it up by eye
+   (see "snapping" below).
 
    Two things software cannot fix: the bent picture uses fewer of the projector's pixels, and at a steep
    angle one side will be a little soft, because a lens focuses at one distance. */
@@ -19,6 +21,8 @@ const stage = $("stage"), ui = $("pinUI"), grid = $("pin");
 const START = [[0, 0], [1, 0], [1, 1], [0, 1]];          // top left, top right, bottom right, bottom left, as fractions of the window
 let pts = START.map(p => p.slice());
 let editing = false, sel = 0;
+let snapOn = true;                                       // dragged corners lock to the grid (scv_pinSnap)
+let dragging = -1;                                       // the corner under the pointer right now, or -1
 
 /* Corners must still make a sensible picture: not folded over itself, not squashed to nothing. */
 function usable(q){
@@ -54,8 +58,33 @@ function apply(){
   document.body.classList.toggle("pinned", on);          // outside the bent picture the page goes pure black: no light from the projector
 }
 
+/* ---------- snapping ----------
+   A corner dragged by hand never lands quite level with the one beside it. So a dragged corner locks to a
+   grid of screen positions: two corners dropped on the same grid line are exactly level, and corners dropped
+   the same number of steps in from each side are exact mirrors of each other. The grid has a line on every
+   screen edge and one through the middle, and its cells are as near square as the window allows (30 px on a
+   1080p screen).
+
+   A corner fine-tuned with the arrow keys can sit between grid lines. So that the others can still be made
+   even with it, a dragged corner that comes close to being level with, in line with, or mirror to another
+   corner locks to exactly that instead of to the grid. Ctrl held while dragging moves the corner freely. */
+const ROWS = 36, GRAB = 0.4;                             // grid cells down the screen; how close (in cells) another corner's line must be to win over the grid
+const cols = () => Math.max(2, Math.round(ROWS * innerWidth / innerHeight / 2) * 2);     // an even number, so the middle of the screen is a grid line
+/* v is one coordinate of the dragged corner as a fraction of the window, n the number of grid cells along
+   that axis, others the same coordinate of the other three corners. */
+function lock(v, n, others){
+  let best = Math.round(v * n) / n, d = GRAB / n;
+  for(const o of others) for(const t of [o, 1 - o]){ const e = Math.abs(v - t); if(e < d){ d = e; best = t; } }
+  return best;
+}
+/* Is corner i level with, in line with, or mirror to another corner along axis k (0 across, 1 down)? */
+function even(i, k){
+  const v = pts[i][k];
+  return pts.some((p, j) => j !== i && (Math.abs(p[k] - v) < 1e-6 || Math.abs(1 - p[k] - v) < 1e-6));
+}
+
 /* ---------- calibration ---------- */
-const handles = Array.from(ui.querySelectorAll(".pinH"));
+const handles = Array.from(ui.querySelectorAll(".pinH")), guideX = $("pinGX"), guideY = $("pinGY");
 function place(){
   const W = innerWidth, H = innerHeight;
   handles.forEach((el, i) => {
@@ -64,16 +93,26 @@ function place(){
     el.style.top = Math.max(24, Math.min(H - 24, pts[i][1] * H)) + "px";
     el.classList.toggle("sel", i === sel);
   });
+  /* two guide lines cross at the corner being dragged; each turns white when the corner is even with another one */
+  ui.classList.toggle("drag", dragging >= 0);
+  if(dragging >= 0){
+    const p = pts[dragging];
+    guideX.style.transform = "translateX(" + Math.min(W - 2, p[0] * W) + "px)"; guideX.classList.toggle("even", even(dragging, 0));
+    guideY.style.transform = "translateY(" + Math.min(H - 2, p[1] * H) + "px)"; guideY.classList.toggle("even", even(dragging, 1));
+  }
 }
-/* Move corner i by a fraction of the window. A move that would fold or flatten the picture is ignored. */
-function move(i, dx, dy){
+/* Put corner i at a place given as fractions of the window. A place that would fold or flatten the picture is ignored. */
+function put(i, x, y){
   const q = pts.map(p => p.slice());
-  q[i][0] = Math.max(0, Math.min(1, q[i][0] + dx)); q[i][1] = Math.max(0, Math.min(1, q[i][1] + dy));
+  q[i][0] = Math.max(0, Math.min(1, x)); q[i][1] = Math.max(0, Math.min(1, y));
+  if(q[i][0] === pts[i][0] && q[i][1] === pts[i][1]) return;       // a locked corner stays put through most of the pointer's movement
   if(!usable(q)) return;
   pts = q;
   store.set("pin", JSON.stringify(pts));
   apply(); place();
 }
+/* Move corner i by a fraction of the window. */
+function move(i, dx, dy){ put(i, pts[i][0] + dx, pts[i][1] + dy); }
 /* The test pattern. It is drawn on the stage, so it is bent along with everything else: what looks square
    and round on the wall is what the picture will look like. Cells are true squares whatever the window shape. */
 function drawGrid(){
@@ -103,6 +142,7 @@ export function editPin(on){
   grid.style.display = editing ? "block" : "none";
   document.body.classList.toggle("pinning", editing);     // the drawer stays out of the way while the corners are being set
   if(editing){ drawGrid(); place(); }
+  else{ dragging = -1; ui.classList.remove("drag"); }     // closed with Enter in the middle of a drag: no guide lines left behind
 }
 function reset(){
   pts = START.map(p => p.slice());
@@ -122,15 +162,23 @@ export function initPin(){
   $("pinReset").addEventListener("click", reset);
   $("pinReset2").addEventListener("click", reset);
 
+  bindCheck("pinSnap", "pinSnap", v => { snapOn = v; });
+
   handles.forEach((el, i) => {
-    let last = null;
-    el.addEventListener("pointerdown", e => { sel = i; last = [e.clientX, e.clientY]; el.setPointerCapture(e.pointerId); place(); e.preventDefault(); });
+    /* raw is where the pointer has carried the corner before any locking. Locking the saved corner instead would
+       throw away every movement smaller than half a grid cell, and the corner would never leave its line. */
+    let last = null, raw = null;
+    el.addEventListener("pointerdown", e => { sel = dragging = i; raw = pts[i].slice(); last = [e.clientX, e.clientY]; el.setPointerCapture(e.pointerId); place(); e.preventDefault(); });
     el.addEventListener("pointermove", e => {
       if(!last) return;
-      move(i, (e.clientX - last[0]) / innerWidth, (e.clientY - last[1]) / innerHeight);
+      raw[0] = Math.max(0, Math.min(1, raw[0] + (e.clientX - last[0]) / innerWidth));
+      raw[1] = Math.max(0, Math.min(1, raw[1] + (e.clientY - last[1]) / innerHeight));
       last = [e.clientX, e.clientY];
+      if(!snapOn || e.ctrlKey || e.metaKey) return put(i, raw[0], raw[1]);
+      const rest = pts.filter((p, j) => j !== i);
+      put(i, lock(raw[0], cols(), rest.map(p => p[0])), lock(raw[1], ROWS, rest.map(p => p[1])));
     });
-    const up = () => { last = null; };
+    const up = () => { last = raw = null; if(dragging === i){ dragging = -1; place(); } };
     el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
   });
 
@@ -154,4 +202,4 @@ export function initPin(){
 }
 
 /* test hook */
-export function pinState(){ return {editing, sel, pts: pts.map(p => p.slice())}; }
+export function pinState(){ return {editing, sel, snap: snapOn, pts: pts.map(p => p.slice())}; }
