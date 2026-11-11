@@ -357,7 +357,7 @@ export function drawFrame(now){
     if(!bx && !by) return;
     g.fillStyle = BLACK; strips(W, H, bx, by);          // the opaque base is what hides the clip's own border
     if(style === "bars"){ layoutEdges(W, H, bx, by); paintBars(); }
-    else if(kick > 0.02){ g.fillStyle = "rgba(217,102,126," + (0.7 * kick).toFixed(3) + ")"; strips(W, H, bx, by); }
+    else if(kick > 0.02){ g.fillStyle = edgeInk(W / 2, H / 2); g.globalAlpha = 0.7 * kick; strips(W, H, bx, by); g.globalAlpha = 1; }   // the pulse, in the chosen colours
     /* a thin line where the border meets the picture, with a soft halo when glow is on */
     const x = bx - lw / 2, y = by - lw / 2, w = W - 2*bx + lw, h = H - 2*by + lw;
     if(S.glow){

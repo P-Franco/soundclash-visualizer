@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,presets,hotkeys]
+                               [--only=hits,stall,zones,clips,cuts,regions,folder,frame,presets,controls,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -149,6 +149,7 @@ async function main(){
   if(info.features.folder && run("folder")) await folderTests(page);
   if(info.features.frame && run("frame")) await frameTests(page);
   if(info.features.presets && run("presets")) await presetTests(page);
+  if(info.features.frame && run("controls")) await controlTests(page);
   if(run("hotkeys")) await hotkeys(page);
 
   section("storage");
@@ -806,6 +807,54 @@ async function presetTests(page){
   s = await ps();
   check("K again removes the star", s.stars.length === 2);
   await page.evaluate(() => localStorage.removeItem("scv_stars"));
+}
+
+/* ---------- only controls that do something are on screen ---------- */
+async function controlTests(page){
+  section("controls shown");
+  const put = (id, value) => page.evaluate(({id, value}) => { const el = document.getElementById(id);
+    if(el.type === "checkbox") el.checked = value; else el.value = value; el.dispatchEvent(new Event(el.type === "range" ? "input" : "change")); }, {id, value});
+  /* is the control (its label or row) showing? */
+  const on = ids => page.evaluate(ids => ids.map(id => { const el = document.getElementById(id); return !(el.closest("label") || el.closest(".row") || el).hidden; }), ids);
+  const all = a => a.every(Boolean), none = a => a.every(v => !v);
+  const before = await page.evaluate(() => Object.fromEntries(["cutOn", "frameStyle", "frameShape", "mdOn", "hudOn", "statusOn", "graph", "xfade"].map(id => { const el = document.getElementById(id); return [id, el.type === "checkbox" ? el.checked : el.value]; })));
+
+  await put("cutOn", false);
+  check("beat cut settings are hidden while beat cuts are off", none(await on(["cutMode", "cutEvery", "cutGap"])));
+  await put("cutOn", true);
+  check("and appear when beat cuts are turned on", all(await on(["cutMode", "cutEvery", "cutGap"])));
+
+  await put("frameStyle", "off");
+  check("border off: only the style and the zoom are left", none(await on(["frameShape", "fx", "frameColor", "frameX", "frameY"])) && all(await on(["frameStyle", "zoom"])));
+  await put("frameShape", "rect"); await put("frameStyle", "solid");
+  check("solid rectangle: no Colours and no sparks, nothing there to colour", none(await on(["frameColor", "fx"])) && all(await on(["frameShape", "frameX", "frameY"])));
+  await put("frameStyle", "pulse");
+  check("pulse on a rectangle: Colours is back", all(await on(["frameColor"])) && none(await on(["fx"])));
+  await put("frameColor", "rainbow"); await page.waitForTimeout(100);
+  const flash = await page.evaluate(() => new Promise(res => { const c = document.getElementById("frame"), g = c.getContext("2d"), W = c.width, H = c.height; const hues = new Set(); let n = 0;
+    const t = () => { for(const [x, y] of [[W >> 1, 3], [3, H >> 1], [W >> 1, H - 4], [W - 4, H >> 1]]){ const p = g.getImageData(x, y, 1, 1).data, M = Math.max(p[0], p[1], p[2]), d = M - Math.min(p[0], p[1], p[2]);
+        if(d > 50){ let h = M === p[0] ? ((p[1] - p[2]) / d) % 6 : M === p[1] ? (p[2] - p[0]) / d + 2 : (p[0] - p[1]) / d + 4; hues.add(Math.floor(((h * 60 + 360) % 360) / 60)); } }
+      if(++n < 90) requestAnimationFrame(t); else res(hues.size); }; t(); }));
+  check("and it changes the pulse: rainbow flashes in several colours round the border", flash >= 3, flash + " colour groups on the four sides");
+  await put("frameStyle", "solid"); await put("frameShape", "oval");
+  check("solid oval: Colours and sparks both apply", all(await on(["frameColor", "fx"])));
+
+  await put("mdOn", false);
+  check("MilkDrop off: its preset and blend controls are hidden", none(await on(["preset", "rand", "lock", "starOnly", "starList", "cycle", "op", "blend"])) && all(await on(["mdOn"])));
+  await put("mdOn", true);
+  check("MilkDrop on: they are back", all(await on(["preset", "rand", "lock", "cycle", "op", "blend"])));
+
+  await put("frameStyle", "off"); await put("hudOn", false); await put("statusOn", false);
+  check("graph and status both off: no graph style, language or glow options", none(await on(["graph", "jp", "glow"])));
+  await put("statusOn", true);
+  check("status text on: the language option is back", all(await on(["jp"])) && none(await on(["graph"])));
+  await put("hudOn", true);
+  await put("xfade", 0);
+  check("crossfade off: the loop crossfade option is hidden", none(await on(["xfadeLoop"])));
+  await put("xfade", 1);
+  check("crossfade on: it is back", all(await on(["xfadeLoop"])));
+
+  for(const [id, v] of Object.entries(before)) await put(id, v);
 }
 
 /* ---------- every hotkey must keep working: F H N V S G M Space ---------- */

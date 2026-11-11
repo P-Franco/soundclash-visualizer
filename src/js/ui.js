@@ -1,7 +1,7 @@
 /* Controls: saved settings bound to the drawer inputs, the slide-in drawer itself, fullscreen, and hotkeys. */
 import { $, stageMd, panel } from "./dom.js";
 import { S } from "./state.js";
-import { bindRange, bindSelect, bindCheck, pct } from "./store.js";
+import { bindRange, bindSelect, bindCheck, pct, onSettingChange } from "./store.js";
 import { gain } from "./audio.js";
 import { replan, nextClip, setRate, setRegionPoint } from "./clips.js";
 import { nextPreset, toggleStar, syncStars } from "./presets.js";
@@ -15,6 +15,25 @@ function nameGraphStyles(){
   const curved = S.frameStyle !== "off" && S.frameShape !== "rect", o = $("graph").options;
   o[0].textContent = curved ? "LED bars round the inside of the edge" : "LED bars, light up on hits";
   o[1].textContent = curved ? "Spectrum curve round the inside of the edge" : "Spectrum curve with note labels";
+}
+
+/* A control that would do nothing in the current setup is hidden, so everything in the drawer has an
+   effect. Hidden controls keep their value and come back when they apply again. */
+function showIf(on, ...ids){
+  for(const id of ids){ const el = $(id); (el.closest("label") || el.closest(".row") || el).hidden = !on; }
+}
+function tidyControls(){
+  const border = S.frameStyle !== "off", round = border && S.frameShape !== "rect";
+  showIf(S.xfade > 0, "xfadeLoop");                                   // nothing to crossfade when crossfade is off
+  showIf(S.cutOn, "cutMode", "cutEvery", "cutGap");
+  showIf(border, "frameShape", "frameX", "frameY");
+  showIf(round, "fx");                                                // sparks and ripples come from the oval or blob
+  showIf(S.frameStyle === "bars" || S.frameStyle === "pulse" || round, "frameColor");   // a plain solid rectangle has nothing to colour
+  showIf(S.mdOn, "preset", "rand", "lock", "starOnly", "starList", "cycle", "op", "blend");
+  showIf(S.hudOn, "graph");
+  showIf(S.statusOn || (S.hudOn && S.graph === "curve"), "jp");       // labels and note names: only where text is drawn
+  showIf(border || (S.hudOn && S.graph === "bars"), "glow");
+  nameGraphStyles();
 }
 
 export function initSettings(){
@@ -51,6 +70,7 @@ export function initSettings(){
   bindRange("zoom", "zoom", pct, v => { S.zoom = v; });
   bindCheck("mdOn", "md", v => { S.mdOn = v; stageMd.style.display = v ? "block" : "none"; });
   $("lock").addEventListener("change", e => { S.locked = e.target.checked; });
+  onSettingChange(tidyControls); tidyControls();
   bindCheck("starOnly", "starOnly", v => { S.starOnly = v; });
   bindCheck("starList", "starList", v => { S.starList = v; syncStars(); });
 }

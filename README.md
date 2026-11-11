@@ -107,6 +107,9 @@ cannot feed back. Only the test track plays out loud.
 - **Presets and favourites**: 395 presets, from all four packs that ship in the
   `butterchurn-presets` package. Star the ones you like (`K` or the Star button), then
   optionally limit auto change to starred presets, or show only starred ones in the list.
+- The drawer only shows controls that do something in the current setup. Turn beat cuts
+  on and their settings appear; pick a border style that has no colour and the Colours
+  list goes away. Hidden controls keep their values.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
 - **Open folder**: point at a folder and it pulls in every video inside, subfolders too,
