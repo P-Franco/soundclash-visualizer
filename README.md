@@ -117,6 +117,8 @@ cannot feed back. Only the test track plays out loud.
   and top/bottom widths just wide enough to hide what is underneath. Styles: solid, colour
   bars that move with the music (rainbow or the app's red), and a pulse on the kick. The
   graph and status text move inside the border. Off by default.
+- **Video zoom**: enlarges the picture up to 200% so a clip's own border falls off the
+  edge of the screen. Use it alone, or with the border to cover whatever is left.
 - **Loop region**: mark an in and an out point on a clip so only the good section plays.
   Drag the position slider to find the spot, then Set in / Set out (or `I` / `O`). Looping,
   crossfades and beat cuts all stay inside the region. Regions are remembered per file

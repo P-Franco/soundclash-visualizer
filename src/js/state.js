@@ -19,6 +19,7 @@ export const S = {
   frameColor: "rainbow", // colour of the bar border: rainbow | app
   frameX: 6,          // border width at the left and right, percent of the screen width
   frameY: 6,          // border height at the top and bottom, percent of the screen height
+  zoom: 1,            // video zoom, 1 to 2: enlarges the picture so a clip's own border falls off the screen
   graph: "bars",      // bars | curve
   sens: 0.6,          // hit sensitivity 0..1
   punch: 0.4,         // video punch on kick 0..1

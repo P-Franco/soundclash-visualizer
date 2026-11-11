@@ -35,6 +35,7 @@ export function initSettings(){
   bindSelect("frameColor", "frameColor", v => { S.frameColor = v; });
   bindRange("frameX", "frameX", v => v + "%", v => { S.frameX = v; });
   bindRange("frameY", "frameY", v => v + "%", v => { S.frameY = v; });
+  bindRange("zoom", "zoom", pct, v => { S.zoom = v; });
   bindCheck("mdOn", "md", v => { S.mdOn = v; stageMd.style.display = v ? "block" : "none"; });
   $("lock").addEventListener("change", e => { S.locked = e.target.checked; });
   bindCheck("starOnly", "starOnly", v => { S.starOnly = v; });

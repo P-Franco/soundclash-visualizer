@@ -34,7 +34,8 @@ function frame(now){
   tickClips(now);
   const dec = Math.exp(-dt/0.14); for(const d of DET) d.env *= dec;
   const k = DET[0].env * S.punch;               // the kick pushes the video: slight zoom, and the darkening lifts
-  vidBox.style.transform = k > 0.004 ? "scale(" + (1 + 0.05*k).toFixed(4) + ")" : "none";
+  const sc = S.zoom * (k > 0.004 ? 1 + 0.05*k : 1);   // zoom crops the clip's own border; the punch rides on top of it
+  vidBox.style.transform = sc !== 1 ? "scale(" + sc.toFixed(4) + ")" : "none";
   dimEl.style.opacity = (S.baseDim * (1 - 0.8*k)).toFixed(3);
   drawFrame();
   drawHud(now);

@@ -664,6 +664,16 @@ async function frameTests(page){
     const t = () => { const p = g.getImageData(3, 3, 1, 1).data; if(p[0] > max) max = p[0]; if(++n < 80) requestAnimationFrame(t); else res(max); }; t(); }));
   check("pulse: the border lights up on the kick", lit > 60, "red channel peaked at " + lit);
 
+  /* video zoom: the box that holds both videos is scaled; the kick punch can add up to 5% on top */
+  const scale = () => page.evaluate(() => { const m = /scale\(([\d.]+)\)/.exec(document.getElementById("vids").style.transform); return m ? +m[1] : 1; });
+  await set("zoom", 1.5); await wait(200);
+  let z = await scale();
+  check("video zoom enlarges the picture", z >= 1.5 && z <= 1.58, "scale " + z);
+  check("the zoom is saved", await page.evaluate(() => localStorage.getItem("scv_zoom")) === "1.5");
+  await set("zoom", 1); await wait(200);
+  z = await scale();
+  check("and back at 100% the picture is its normal size", z <= 1.06, "scale " + z);
+
   await page.evaluate(() => document.activeElement && document.activeElement.blur());
   await set("frameStyle", "off");
   const seen = [];
