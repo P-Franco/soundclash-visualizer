@@ -13,6 +13,7 @@ export const S = {
   wordsAmount: 2,     // labels per kick
   wordsSize: 15,      // text size, in px on a 1280 wide screen
   jp: true,           // Japanese labels and note names
+  labelSize: 0.8,     // size of the status text and the note labels on the graph, 1 = the original size
   locked: false,      // MilkDrop preset lock (stops auto change)
   cycleSec: 30,       // MilkDrop auto change interval
   starOnly: false,    // auto change picks starred presets only

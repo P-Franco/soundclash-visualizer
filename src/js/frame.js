@@ -281,7 +281,7 @@ function innerCurve(cx, cy, rx, ry, gap, depth, lw, W, A){
   g.strokeStyle = "#fff"; g.lineWidth = lw * 2.4; g.stroke();
 
   /* the two strongest notes: a dot on the curve and plain text beside it (no boxes), one on each side */
-  const f = W / 1280, unit = Math.min(rx, ry);
+  const f = W / 1280 * S.labelSize, unit = Math.min(rx, ry);
   g.textAlign = "center"; g.textBaseline = "middle";
   for(let n = 0; n < labels.length; n++){
     const lab = labels[n];

@@ -8,7 +8,7 @@
 
    usage: node tools/verify.js [--file=path.html] [--browser=chrome|msedge|bundled|path.exe]
                                [--seconds=8] [--md] [--no-worklet] [--https] [--headed] [--size=1280x720]
-                               [--only=hits,stall,zones,clips,shuffle,folder,frame,presets,controls,words,show,hotkeys]
+                               [--only=hits,stall,zones,audio,clips,shuffle,folder,frame,presets,controls,words,show,hotkeys]
 
    --md          leaves the MilkDrop layer on while measuring. Headless Chrome without a GPU renders
                  that layer at a few frames per second, so it is off by default here.
@@ -115,7 +115,7 @@ async function main(){
   const info = await page.evaluate(() => {
     let gpu = "unknown";
     try{ const gl = document.createElement("canvas").getContext("webgl2"), x = gl.getExtension("WEBGL_debug_renderer_info"); if(x) gpu = gl.getParameter(x.UNMASKED_RENDERER_WEBGL); }catch(e){ gpu = "no WebGL 2"; }
-    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function", show: !!document.getElementById("showOn")}};
+    return {gpu, features: {zones: !!document.getElementById("zones"), clipState: typeof window.__scv.clipState === "function", folder: !!document.getElementById("openFolder"), frame: !!document.getElementById("frame"), presets: typeof window.__scv.presetState === "function", words: typeof window.__scv.wordsState === "function", show: !!document.getElementById("showOn"), sys: !!document.getElementById("sysBtn")}};
   });
   console.log("  WebGL renderer: " + info.gpu);
 
@@ -143,6 +143,7 @@ async function main(){
   }
 
   if(info.features.zones && run("zones")) await zones(page);
+  if(info.features.sys && run("audio")) await audioTests(page);
   if(info.features.clipState && run("clips")) await clipTests(page);
   if(info.features.clipState && run("shuffle")) await shuffleTests(page);
   if(info.features.folder && run("folder")) await folderTests(page);
@@ -215,6 +216,72 @@ async function zones(page){
   check("Reset zones restores the defaults", d.length === 3 && d[0].lo === 40 && d[0].hi === 120 && d[1].lo === 1800 && d[2].hi === 14000, d.map(z => z.lo + "-" + z.hi).join(" "));
   await page.waitForTimeout(3000);
   compare(await countHits(page, 4000), "after reset: ");
+}
+
+/* ---------- sound sources ---------- */
+/* The real share window cannot be driven from a test, so getDisplayMedia is replaced with stand-ins:
+   one that hands back sound (the fake input again), one with no sound, one that is refused.
+   That checks what the app does with each answer, not that a browser really shares system audio. */
+async function audioTests(page){
+  section("sound sources");
+  const wait = ms => page.waitForTimeout(ms);
+  const label = () => page.evaluate(() => window.__scv.inputLabel);
+  const pick = v => page.evaluate(v => { const el = document.getElementById("device"); el.value = v; el.dispatchEvent(new Event("change")); }, v);
+  const sys = () => page.evaluate(() => ({btn: document.getElementById("sysBtn").textContent, note: document.getElementById("sysV").textContent}));
+  const stub = kind => page.evaluate(kind => { navigator.mediaDevices.getDisplayMedia = async () => {
+    if(kind === "refused"){ const e = new Error("no"); e.name = "NotAllowedError"; throw e; }
+    const v = document.createElement("canvas").captureStream(1).getVideoTracks()[0];
+    if(kind === "silent") return new MediaStream([v]);
+    const mic = await navigator.mediaDevices.getUserMedia({audio: true});
+    return new MediaStream([v, mic.getAudioTracks()[0]]); }; }, kind);
+
+  const opts = await page.evaluate(() => Array.from(document.getElementById("device").options).map(o => o.textContent));
+  check("the input list offers no input, all inputs together, and each device", opts[0] === "No input device" && opts[1] === "All inputs together" && opts.length >= 3, opts.join(" | "));
+  const one = await label();
+
+  await pick("__all"); await wait(1500);
+  const all = await label(), n = +((/ALL INPUTS \((\d+)\)/.exec(all) || [0, 0])[1]);
+  check("\"All inputs together\" opens every input at once", n >= 2, all);
+  let m = await countHits(page, 2500);
+  check("and the music is still heard through them", m.counts[0] >= 3, m.counts[0] + " kicks in 2.5 s");
+
+  await stub("sound");
+  await page.evaluate(() => document.getElementById("sysBtn").click()); await wait(800);
+  let s = await sys();
+  check("this computer's sound is added on top of the inputs", /\+ COMPUTER SOUND$/.test(await label()) && /^Stop/.test(s.btn), await label());
+  await page.evaluate(() => document.getElementById("sysBtn").click()); await wait(300);
+  s = await sys();
+  check("the same button stops it again", !/COMPUTER/.test(await label()) && /^Also/.test(s.btn));
+
+  await stub("silent");
+  await page.evaluate(() => document.getElementById("sysBtn").click()); await wait(500);
+  s = await sys();
+  check("a share with no sound is turned down, with a hint to tick the audio box", !/COMPUTER/.test(await label()) && /tick the box/.test(s.note), s.note);
+  await stub("refused");
+  await page.evaluate(() => document.getElementById("sysBtn").click()); await wait(400);
+  s = await sys();
+  check("cancelling the share window changes nothing", !/COMPUTER/.test(await label()) && /cancelled/.test(s.note));
+
+  const firstDevice = await page.evaluate(() => document.getElementById("device").options[2].value);
+  await pick(firstDevice); await wait(900);
+  check("picking one device goes back to just that device", !/ALL INPUTS/.test(await label()) && (await label()).length > 0, await label());
+
+  /* a fresh launch with nothing but this computer's sound */
+  await page.reload();
+  if(!args.md) await page.evaluate(() => { const el = document.getElementById("mdOn"); el.checked = false; el.dispatchEvent(new Event("change")); });
+  await stub("sound");
+  await page.click("#goSys");
+  await page.waitForFunction(() => getComputedStyle(document.getElementById("start")).display === "none", null, {timeout: 15000});
+  await wait(1500);
+  m = await countHits(page, 2500);
+  check("the show can start from this computer's sound alone", (await label()) === "COMPUTER SOUND" && m.counts[0] >= 3, (await label()) + ", " + m.counts[0] + " kicks in 2.5 s");
+  await pick("__all"); await wait(1200);
+  check("and inputs can be added to it afterwards", /^ALL INPUTS \(\d+\) \+ COMPUTER SOUND$/.test(await label()), await label());
+  await pick("__none"); await wait(400);
+  check("\"No input device\" leaves just this computer's sound", (await label()) === "COMPUTER SOUND");
+  await pick("__all"); await wait(1200);
+  await page.evaluate(() => document.getElementById("sysBtn").click()); await wait(300);
+  void one;
 }
 
 /* ---------- video clips ---------- */
@@ -710,7 +777,7 @@ async function wordTests(page){
       if(performance.now() - t0 < ms) requestAnimationFrame(t); else { const c = document.getElementById("hud"); res({items: Array.from(seen.values()), most, W: c.width, H: c.height}); } }; t(); }), ms);
   const JP = /[\u3040-\u30ff\u4e00-\u9fff]/, NOTE = /^[ハニホヘトイロ]#?-\d$/;
 
-  await put("wordsOn", false);                                // off while the layout changes, so no label is left from the old one
+  await put("wordsOn", false); await wait(100);               // off while the layout changes, so no label is left from the old one
   await put("statusOn", true); await put("hudOn", true); await put("graph", "bars");
   await put("frameShape", "rect"); await put("frameStyle", "solid"); await put("frameX", 8); await put("frameY", 10);
   await put("wordsKind", "both"); await put("wordsAmount", 3); await put("wordsSize", 15); await put("wordsOn", true);
@@ -719,8 +786,17 @@ async function wordTests(page){
   check("labels appear with the kicks", g.items.length >= 8 && g.most >= 3, g.items.length + " labels in 4 s, up to " + g.most + " on screen");
   check("every label is Japanese text", g.items.every(L => JP.test(L.txt)), g.items.slice(0, 6).map(L => L.txt).join("  "));
   check("both kinds show: note names and words", g.items.some(L => NOTE.test(L.txt)) && g.items.some(L => !NOTE.test(L.txt)));
-  check("all inside the border, above the graph", g.items.every(L => L.x >= bx && L.x + L.w <= g.W - bx && L.y >= by && L.y + L.h <= g.H * 0.62));
-  check("none over the status text", g.items.every(L => !(L.x < bx + 612 && L.y < by + 184)), "status block is the top left 612 x 184");
+  const out = g.items.find(L => !(L.x >= bx && L.x + L.w <= g.W - bx && L.y >= by && L.y + L.h <= g.H * 0.62));
+  check("all inside the border, above the graph", !out, out ? out.txt + " at " + Math.round(out.x) + "," + Math.round(out.y) + " size " + Math.round(out.w) + "x" + Math.round(out.h) + "; border " + Math.round(bx) + "," + Math.round(by) + "; look " + JSON.stringify(await page.evaluate(() => { const L = window.__scv.lookState(); return [L.x, L.y, L.sq, L.graph]; })) : "");
+  const ls = await page.evaluate(() => parseFloat(document.getElementById("labelSize").value));
+  check("none over the status text", g.items.every(L => !(L.x < bx + 612 * ls && L.y < by + 184 * ls)), "status block is the top left " + Math.round(612 * ls) + " x " + Math.round(184 * ls) + " at label size " + Math.round(ls * 100) + "%");
+  /* the label size slider scales the status block */
+  const statusWidth = () => page.evaluate(() => { const c = document.getElementById("hud"), g2 = c.getContext("2d"), y = Math.round(c.height * 0.10) + 40, d = g2.getImageData(0, y, c.width, 1).data; let last = 0; for(let x = 0; x < c.width; x++) if(d[x*4+3] > 0) last = x; return last; });
+  await put("wordsOn", false); await wait(250);
+  await put("labelSize", 0.5); await wait(150); const small = await statusWidth();
+  await put("labelSize", 1.5); await wait(150); const big = await statusWidth();
+  check("the label size slider shrinks and grows the status text", big > small * 1.5, "status block reaches " + small + " px across at 50% and " + big + " px at 150%");
+  await put("labelSize", ls); await put("wordsOn", true);
   await page.mouse.move(40, 300); await wait(3600);
   await page.screenshot({path: path.join(outDir, "verify-words.png")});
 

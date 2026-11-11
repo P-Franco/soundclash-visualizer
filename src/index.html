@@ -26,10 +26,11 @@
     <p>Looping video clips with a live graph on top: LED bars that light up on kicks, snares and hats, plus an optional MilkDrop layer, all driven by whatever your sound card hears. Plug the DJ feed into line-in (or just let the mic hear the room), pick that input, and go fullscreen.</p>
     <div class="row">
       <button class="primary" id="goMic">Start with audio input</button>
+      <button id="goSys">Start with this computer's sound</button>
       <label class="filebtn" for="testAudio">Test with an audio file<input class="hide" type="file" id="testAudio" accept="audio/*"></label>
     </div>
     <div id="err" role="alert"></div>
-    <p>Open this file in Chrome or Edge. The browser asks for microphone permission once per launch; nothing is recorded or sent anywhere, and everything runs offline.</p>
+    <p>Open this file in Chrome or Edge. The browser asks for microphone permission once per launch; nothing is recorded or sent anywhere, and everything runs offline. For this computer's own sound the browser opens its share window instead: pick Entire screen, or the tab that is playing, and tick the box to share audio. Only the sound is used.</p>
   </div>
 </div>
 
@@ -44,6 +45,8 @@
   <section>
     <h2>AUDIO IN</h2>
     <label><span>Input device</span><select id="device"></select></label>
+    <div class="row"><button id="sysBtn">Also listen to this computer's sound</button></div>
+    <div class="keys" id="sysV"></div>
     <label><span>Sensitivity <b id="gainV"></b></span><input type="range" id="gain" min="0.2" max="8" step="0.1" value="1.5"></label>
     <div class="row"><label class="filebtn" for="testAudio2">Play a test track<input class="hide" type="file" id="testAudio2" accept="audio/*"></label></div>
   </section>
@@ -127,6 +130,7 @@
       <option value="bars">LED bars, light up on hits</option>
       <option value="curve">Spectrum curve with note labels</option></select></label>
     <label class="check"><input type="checkbox" id="jp" checked> Japanese labels and イロハ note names</label>
+    <label><span>Status and note label size <b id="labelSizeV"></b></span><input type="range" id="labelSize" min="0.5" max="1.5" step="0.05" value="0.8"></label>
   </section>
 
   <section>

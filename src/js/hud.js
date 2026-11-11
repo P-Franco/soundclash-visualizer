@@ -103,6 +103,7 @@ export function drawHud(now){
   hctx.setTransform(1,0,0,1,ox,oy);
   const dpr = W0 / innerWidth, s = dpr * Math.max(0.75, Math.min(1.6, Math.min(innerWidth/1280, innerHeight/720)));
   const FONT = '"MS Gothic","Osaka-Mono","DotGothic16",Consolas,"Courier New",monospace';
+  const sT = s * S.labelSize;                              // the status text and the note labels have their own size
   const x0 = 26*s, x1 = W - 26*s, yB = H - 46*s, hS = H * 0.36, yT = yB - hS;
   const X = i => x0 + (x1-x0) * i/(N-1), Y = v => yB - v*hS;
   const fx = f => x0 + (x1-x0) * Math.log(f/F0)/Math.log(F1/F0);
@@ -114,6 +115,7 @@ export function drawHud(now){
   }
 
   if(S.statusOn){
+  const s = sT;
   /* status text: input, preset, clip, time, level, hit pads */
   hctx.font = (17*s) + "px " + FONT; hctx.textBaseline = "top"; hctx.textAlign = "left";
   const rows = [
@@ -221,6 +223,7 @@ export function drawHud(now){
 
   /* peak labels */
   for(const L of labels){
+    const s = sT;
     const tx = L.on ? X(L.ti) : L.x, ty = L.on ? Y(cur[L.ti]) : L.y;
     if(L.a < 0.02){ L.x = tx; L.y = ty; } else { L.x += (tx - L.x)*0.18; L.y += (ty - L.y)*0.18; }
     L.a += ((L.on ? 1 : 0) - L.a) * 0.12;

@@ -8,6 +8,7 @@ import { nextPreset, toggleStar, syncStars } from "./presets.js";
 import { sizeCanvases } from "./stage.js";
 import { syncSens } from "./detect.js";
 import { startShow } from "./show.js";
+import { clearWords } from "./words.js";
 import { FRAME_STYLES } from "./frame.js";
 
 /* A control that would do nothing in the current setup is hidden, so everything in the drawer has an
@@ -25,7 +26,8 @@ function tidyControls(){
   showIf(show || round, "fx");                                                // sparks and ripples come from the oval or blob
   showIf(S.mdOn, "preset", "rand", "lock", "starOnly", "starList", "cycle", "op", "blend");
   showIf(!show && S.hudOn && !round, "graph");                                 // an oval or blob has one graph, the curve: nothing to choose
-  showIf(show || S.statusOn || (S.hudOn && (round || S.graph === "curve")), "jp");   // labels and note names: only where text is drawn
+  showIf(show || S.statusOn || (S.hudOn && (round || S.graph === "curve")), "jp");
+  showIf(show || S.statusOn || S.hudOn, "labelSize");   // labels and note names: only where text is drawn
   showIf(show || border || (S.hudOn && S.graph === "bars"), "glow");
 }
 
@@ -50,11 +52,12 @@ export function initSettings(){
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("fx").checked = false;   // a saved choice still wins
   bindCheck("fx", "fx", v => { S.fx = v; });
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) $("wordsOn").checked = false;
-  bindCheck("wordsOn", "wordsOn", v => { S.wordsOn = v; });
+  bindCheck("wordsOn", "wordsOn", v => { S.wordsOn = v; if(!v) clearWords(); });
   bindSelect("wordsKind", "wordsKind", v => { S.wordsKind = v; });
   bindRange("wordsAmount", "wordsAmount", v => v + " a kick", v => { S.wordsAmount = v; });
   bindRange("wordsSize", "wordsSize", v => v + " px", v => { S.wordsSize = v; });
   bindCheck("jp", "jp", v => { S.jp = v; });
+  bindRange("labelSize", "labelSize", pct, v => { S.labelSize = v; });
   bindRange("sens", "sens", pct, v => { S.sens = v; syncSens(); });
   bindRange("punch", "punch", pct, v => { S.punch = v; });
   bindSelect("graph", "graph", v => { S.graph = v; });

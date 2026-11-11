@@ -56,4 +56,4 @@ initPanel();
 sizeCanvases();
 
 /* test hook, used by tools/verify.js */
-window.__scv = {clips, addClips, clipState, presetState, frameState, wordsState, lookState: () => ({...L}), snapLook, SHOW, showSeek, showAt, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};
+window.__scv = {get inputLabel(){ return S.inputLabel; }, clips, addClips, clipState, presetState, frameState, wordsState, lookState: () => ({...L}), snapLook, SHOW, showSeek, showAt, DET, get detMode(){ return detMode; }, get detVia(){ return detVia; }, get detError(){ return detError; }};

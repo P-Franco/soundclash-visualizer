@@ -42,7 +42,8 @@ function picture(){
   let status = null;
   if(S.statusOn){                // the status block sits at the top left of the area the graph is laid out in
     const ox = round ? Math.round(W / 2 - (W / 2 - bx) * 0.7071) : bx, oy = round ? Math.round(H / 2 - (H / 2 - by) * 0.7071) : by;
-    status = [ox + 6 * s, oy + 6 * s, 612 * s, 184 * s];
+    const t = s * S.labelSize;                                // the status block shrinks and grows with the label size
+    status = [ox + 6 * t, oy + 6 * t, 612 * t, 184 * t];
   }
   return {W, H, bx, by, round, graph, s, status};
 }
@@ -107,9 +108,11 @@ export function drawWords(now){
   if(!S.wordsOn){ pool.length = 0; return; }
   c.setTransform(1, 0, 0, 1, 0, 0); c.shadowBlur = 0; c.textAlign = "left"; c.textBaseline = "top"; c.lineJoin = "round";
   const kick = DET[0].env; let font = "";
+  const W = hud.width, H = hud.height, bx = W * LOOK.x / 100, by = H * LOOK.y / 100;
   for(let i = pool.length - 1; i >= 0; i--){
     const L = pool[i], age = (now - L.t0) / 1000;
-    if(age >= L.life){ pool.splice(i, 1); continue; }
+    /* gone when its time is up, or when the border has moved over it (text never sits on the black) */
+    if(age >= L.life || L.x < bx || L.x + L.w > W - bx || L.y < by || L.y + L.h > H - by){ pool.splice(i, 1); continue; }
     if(L.font !== font){ font = L.font; c.font = font; }
     /* quick in, slow out; every label lifts a little on each kick */
     c.globalAlpha = Math.min(1, age / 0.06) * Math.min(1, (L.life - age) / (L.life * 0.45)) * (0.78 + 0.22 * kick);
@@ -119,6 +122,9 @@ export function drawWords(now){
   }
   c.globalAlpha = 1;
 }
+
+/* Take every label off the screen at once (the text was switched off). */
+export function clearWords(){ pool.length = 0; }
 
 /* test hook */
 export function wordsState(){ return pool.map(L => ({txt: L.txt, x: L.x, y: L.y, w: L.w, h: L.h})); }

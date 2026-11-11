@@ -29,6 +29,19 @@ Then open `dist/soundclash-visualizer.html` in Chrome or Edge.
    can drop files or a folder anywhere on the window.)
 4. Press `F` for fullscreen and `H` to hide the controls.
 
+**Where the sound can come from**, alone or together:
+
+- **An input device**: line-in, a USB interface, or a mic. Pick it under AUDIO IN.
+- **All inputs together**: the first entry in that list opens every input the computer has
+  at once, so whatever is plugged in gets heard without choosing.
+- **This computer's own sound**: for when the music is playing on the same machine. A web
+  page cannot simply tap what the computer is playing. The only way a browser allows it is
+  its share window: click **Also listen to this computer's sound** (or start with it),
+  pick **Entire screen**, or the tab that is playing, and tick the box to share audio. Only
+  the sound is used; the picture is never shown, kept or sent. It has to be granted again
+  each time the page is opened. Windows shares the whole system's sound with Entire screen;
+  on a Mac, Chrome can only share the sound of a tab.
+
 No input handy? **Test with an audio file** plays a local track through the speakers and
 drives the visuals from it.
 
@@ -91,7 +104,8 @@ cannot feed back. Only the test track plays out loud.
 
 ## What is in it
 
-- **Audio in**: any input device, with a sensitivity (gain) slider.
+- **Audio in**: any input device, all of them at once, this computer's own sound, or any mix
+  of those, with a sensitivity (gain) slider.
 - **Video clips**: a playlist of local files, played one after another. Speed, darken and red wash controls. The clip zooms and
   brightens slightly on each kick ("video punch", adjustable, off by default when your
   system asks for reduced motion).
@@ -117,6 +131,8 @@ cannot feed back. Only the test track plays out loud.
   optionally limit auto change to starred presets, or show only starred ones in the list.
 - The drawer only shows controls that do something in the current setup. Turn the border
   on and its settings appear; pick the oval or blob and the sparks option appears. Hidden controls keep their values.
+- **Label size**: one slider sets the size of the status text and of the note names on the
+  graph, from half to one and a half times the original. It starts at 80%.
 - Settings are saved in the browser (localStorage, keys start with `scv_`).
 
 - **Open folder**: point at a folder and it pulls in every video inside, subfolders too,
